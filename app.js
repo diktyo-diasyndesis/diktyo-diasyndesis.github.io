@@ -244,7 +244,7 @@ function avatar(id, size = '') {
   const o = S.O[id];
   if (!o) return `<span class="av ${size}"></span>`;
   return o.logo_url
-    ? `<span class="av ${size}" title="${esc(o.name)}"><img src="${esc(o.logo_url)}" alt="Λογότυπο ${esc(o.short)}"></span>`
+    ? `<span class="av logo ${size}" title="${esc(o.name)}"><img src="${esc(o.logo_url)}" alt="Λογότυπο ${esc(o.short)}"></span>`
     : `<span class="av ${size}" title="${esc(o.name)}">${esc(o.short)}</span>`;
 }
 

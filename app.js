@@ -310,7 +310,7 @@ const NAV = [
   ['arxiki','Αρχική','home'], ['grafeia','Γραφεία','offices'], ['anartiseis','Αναρτήσεις','posts'],
   ['syzitisi','Συζήτηση','chat'], ['deltio','Δελτίο','bulletin']
 ];
-const ALL_VIEWS = [...NAV.map(n => n[0]), 'logariasmos', 'diaxeirisi'];
+const ALL_VIEWS = [...NAV.map(n => n[0]), 'logariasmos', 'diaxeirisi', 'aporrito'];
 
 function go(view, opts = {}) {
   S.view = ALL_VIEWS.includes(view) ? view : 'arxiki';
@@ -607,9 +607,39 @@ function vAccount() {
           : ios ? '<p class="small muted">Στο iPhone ή iPad: πατήστε το κουμπί Κοινοποίηση στο Safari και μετά «Προσθήκη στην οθόνη Αφετηρίας».</p>'
           : '<p class="small muted">Στον υπολογιστή: πατήστε το εικονίδιο εγκατάστασης στη γραμμή διευθύνσεων του Chrome ή του Edge. Στο Android: μενού ⋮ και «Προσθήκη στην αρχική οθόνη».</p>'}
       </div>
+      <div class="card pad stack" style="gap:6px"><h2>Προσωπικά δεδομένα</h2><p class="small muted">Τι κρατά η εφαρμογή και ποια δικαιώματα έχετε.</p><div><button class="btn sm" data-go="aporrito">Ενημέρωση</button></div></div>
       <div class="card pad stack" style="gap:6px"><h2>Ο ρόλος μου</h2><p class="small">${isAdmin() ? 'Διαχειριστής του Δικτύου: εγκρίνετε νέους χρήστες και δημοσιεύετε το Δελτίο.' : 'Στέλεχος γραφείου: δημοσιεύετε αναρτήσεις και ενημερώνετε τα στοιχεία του γραφείου σας.'}</p></div>
     </aside>
   </div>`;
+}
+
+
+/* ---------- Προστασία προσωπικών δεδομένων ---------- */
+function vPrivacy() {
+  return `
+  <div class="page-head"><div><div class="eyebrow">Ενημέρωση</div><h1>Προστασία προσωπικών δεδομένων</h1>
+    <p class="lede">Πώς χειρίζεται το Δίκτυο Γραφείων Διασύνδεσης τα στοιχεία των χρηστών του.</p></div></div>
+  <article class="card pad stack" style="gap:16px;max-width:820px">
+    <section class="stack" style="gap:6px"><h2>Ποιος είναι υπεύθυνος</h2>
+      <p>Το Δίκτυο είναι πιλοτική πρωτοβουλία του Γραφείου Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας. Για ερωτήματα σχετικά με τα δεδομένα σας επικοινωνήστε με το Γραφείο Διασύνδεσης του ΠΔΜ.</p></section>
+    <section class="stack" style="gap:6px"><h2>Ποια δεδομένα κρατάμε</h2>
+      <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
+        <li>Για κάθε χρήστη: ονοματεπώνυμο, υπηρεσιακό email, ίδρυμα και κατάσταση έγκρισης.</li>
+        <li>Για κάθε γραφείο: τα στοιχεία επικοινωνίας και το λογότυπο που συμπληρώνει το ίδιο το γραφείο.</li>
+        <li>Τις αναρτήσεις και τα μηνύματα που δημοσιεύουν τα γραφεία.</li>
+      </ul>
+      <p><b>Δεν</b> κρατάμε στοιχεία φοιτητών, αποφοίτων ή εργοδοτών. Παρακαλούμε μην τα αναρτάτε.</p></section>
+    <section class="stack" style="gap:6px"><h2>Για ποιο σκοπό</h2>
+      <p>Αποκλειστικά για την επικοινωνία και τη συνεργασία μεταξύ των Γραφείων Διασύνδεσης των ΑΕΙ. Τα δεδομένα δεν χρησιμοποιούνται για διαφήμιση, δεν πωλούνται και δεν δίνονται σε τρίτους.</p></section>
+    <section class="stack" style="gap:6px"><h2>Ποιος τα βλέπει</h2>
+      <p>Μόνο εγκεκριμένα στελέχη Γραφείων Διασύνδεσης. Τα email των χρηστών τα βλέπουν μόνο οι διαχειριστές, για την έγκριση της πρόσβασης.</p></section>
+    <section class="stack" style="gap:6px"><h2>Πού αποθηκεύονται</h2>
+      <p>Σε διακομιστές της υπηρεσίας Supabase στην Ευρωπαϊκή Ένωση (Ιρλανδία). Η σελίδα της εφαρμογής φιλοξενείται στο GitHub Pages, που δεν αποθηκεύει δεδομένα χρηστών.</p></section>
+    <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
+      <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
+    <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
+      <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης και διαγραφής των δεδομένων σας, καθώς και δικαίωμα καταγγελίας στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα. Τα στοιχεία του γραφείου σας μπορείτε να τα διορθώσετε μόνοι σας από τη σελίδα «Ο λογαριασμός μου».</p></section>
+  </article>`;
 }
 
 /* ---------- Διαχείριση ---------- */
@@ -648,10 +678,12 @@ function vAuth(err = '') {
         ${authTab === 'signup' ? '<div class="field"><label for="a_name">Ονοματεπώνυμο</label><input class="input" id="a_name" required maxlength="120" autocomplete="name"></div>' : ''}
         <div class="field"><label for="a_email">Ιδρυματικό email</label><input class="input" id="a_email" type="email" required autocomplete="email" placeholder="onoma@uowm.gr"></div>
         <div class="field"><label for="a_pw">Κωδικός</label><input class="input" id="a_pw" type="password" required minlength="${authTab === 'signup' ? 8 : 1}" autocomplete="${authTab === 'signup' ? 'new-password' : 'current-password'}">${authTab === 'signup' ? '<span class="hint">Τουλάχιστον 8 χαρακτήρες.</span>' : ''}</div>
+        ${authTab === 'signup' ? '<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="a_consent" required style="margin-top:3px"><span>Διάβασα την <a href="#aporrito" data-go="aporrito">ενημέρωση για την προστασία προσωπικών δεδομένων</a>.</span></label>' : ''}
         <button class="btn primary" id="authBtn">${authTab === 'signup' ? 'Υποβολή αίτησης' : 'Είσοδος'}</button>
       </form>
       ${authTab === 'signup' ? '<p class="small muted">Η πρόσβαση ενεργοποιείται αφού ένας διαχειριστής του Δικτύου επιβεβαιώσει ότι ανήκετε σε Γραφείο Διασύνδεσης.</p>' : ''}
     </div>
+    <p class="auth-note"><a href="#aporrito" data-go="aporrito" style="color:inherit">Προστασία προσωπικών δεδομένων</a></p>
     <p class="auth-note">Πιλοτική πρωτοβουλία του Γραφείου Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας. Μόνο για στελέχη Γραφείων Διασύνδεσης ελληνικών ΑΕΙ.</p>
   </div></div>`;
 }
@@ -670,10 +702,14 @@ let renderSeq = 0;
 async function render() {
   const root = $('#app');
   const seq = ++renderSeq;
+  if (S.view === 'aporrito' && S.me?.profile?.status !== 'approved') {
+    root.innerHTML = `<main class="gut"><div class="container stack view-in" style="max-width:860px"><div><button class="btn ghost sm" data-go="arxiki">← Πίσω</button></div>${vPrivacy()}</div></main>`;
+    return;
+  }
   if (!S.me) { root.innerHTML = vAuth(); return; }
   const st = S.me.profile?.status;
   if (st !== 'approved') { root.innerHTML = vPending(st); return; }
-  const views = { arxiki: vHome, grafeia: vOffices, anartiseis: vPosts, syzitisi: vThreads, deltio: vBulletin, logariasmos: vAccount, diaxeirisi: vAdmin };
+  const views = { aporrito: vPrivacy, arxiki: vHome, grafeia: vOffices, anartiseis: vPosts, syzitisi: vThreads, deltio: vBulletin, logariasmos: vAccount, diaxeirisi: vAdmin };
   try {
     const html = await views[S.view]();
     if (seq !== renderSeq) return;

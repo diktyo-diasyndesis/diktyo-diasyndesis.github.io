@@ -219,6 +219,34 @@ const api = {
   }
 };
 
+
+/* Λογότυπο: κόβει αυτόματα το λευκό/διάφανο περιθώριο και το κάνει καθαρό PNG (έως 800px) */
+async function prepareLogo(file) {
+  if (file.type === 'image/svg+xml') return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (d[i + 3] > 16 && !(d[i] > 242 && d[i + 1] > 242 && d[i + 2] > 242)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return file;
+    const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.03);
+    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(w - 1, x1 + pad); y1 = Math.min(h - 1, y1 + pad);
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1, k = Math.min(1, 800 / Math.max(cw, ch));
+    const o = document.createElement('canvas'); o.width = Math.round(cw * k); o.height = Math.round(ch * k);
+    const octx = o.getContext('2d'); octx.imageSmoothingQuality = 'high';
+    octx.drawImage(c, x0, y0, cw, ch, 0, 0, o.width, o.height);
+    const blob = await new Promise(r => o.toBlob(r, 'image/png'));
+    return blob ? new File([blob], 'logo.png', { type: 'image/png' }) : file;
+  } catch (_) { return file; } finally { URL.revokeObjectURL(url); }
+}
+
 /* =====================================================================
    Κατάσταση & βοηθητικά
    ===================================================================== */
@@ -590,7 +618,7 @@ function vAccount() {
       <div><h2>Στοιχεία του γραφείου μου</h2><p class="small muted">Αυτά βλέπουν τα υπόλοιπα γραφεία στη σελίδα του ιδρύματός σας.</p></div>
       <div class="office-head">${avatar(p.office_id, 'lg')}<div class="stack" style="gap:6px"><b>${esc(o.name)}</b>
         <label class="btn sm" style="width:max-content">Ανέβασμα λογοτύπου<input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden></label>
-        <span class="small muted">PNG, JPG ή SVG, έως 1 MB.</span></div></div>
+        <span class="small muted">PNG, JPG ή SVG. Το κενό περιθώριο κόβεται αυτόματα.</span></div></div>
       <form class="form" id="officeForm">
         <div class="field"><label for="f_resp">Υπεύθυνος/η γραφείου</label><input class="input" id="f_resp" value="${esc(o.responsible)}" maxlength="120"></div>
         <div class="row2"><div class="field"><label for="f_email">Email γραφείου</label><input class="input" id="f_email" type="email" value="${esc(o.email)}" maxlength="120"></div>
@@ -873,8 +901,11 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   if (e.target.id === 'regionSel') { S.region = e.target.value; render(); }
   if (e.target.id === 'logoFile') {
-    const f = e.target.files[0]; if (!f) return;
-    if (f.size > 1024 * 1024) { toast('Το αρχείο ξεπερνά το 1 MB.'); return; }
+    const raw = e.target.files[0]; if (!raw) return;
+    if (raw.size > 8 * 1024 * 1024) { toast('Το αρχείο ξεπερνά τα 8 MB.'); return; }
+    toast('Γίνεται επεξεργασία του λογοτύπου…');
+    const f = await prepareLogo(raw);
+    if (f.size > 2 * 1024 * 1024) { toast('Το λογότυπο είναι πολύ μεγάλο. Δοκιμάστε μικρότερο αρχείο.'); return; }
     try { await api.uploadLogo(myOffice(), f); S.offices = await api.offices(); S.O = Object.fromEntries(S.offices.map(o => [o.id, o])); render(); toast('Το λογότυπο ανέβηκε'); }
     catch (err) { toast(errMsg(err)); }
   }

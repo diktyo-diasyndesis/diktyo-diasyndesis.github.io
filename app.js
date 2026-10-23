@@ -194,7 +194,14 @@ const api = {
       if (action === 'improve') return { text: `Το Γραφείο Διασύνδεσης του ${officeName(myOffice())} ενημερώνει: ${payload.body}`.trim() };
       if (action === 'translate') return { title: '[EN] ' + payload.title, body: '[EN] ' + payload.body };
     }
-    const { data, error } = await sb.functions.invoke('ai', { body: { action, ...payload } });
+    let res;
+    try {
+      res = await Promise.race([
+        sb.functions.invoke('ai', { body: { action, ...payload } }),
+        new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('Η υπηρεσία άργησε πολύ να απαντήσει. Δοκιμάστε ξανά σε λίγο.'), { code: 'TIMEOUT' })), action === 'bulletin' ? 90000 : 45000))
+      ]);
+    } catch (e) { throw e; }
+    const { data, error } = res;
     if (error) {
       let code = '', status = error.context?.status || '';
       try { code = (await error.context?.clone?.().json?.())?.error || (await error.context?.json())?.error || ''; } catch (_) {}

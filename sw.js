@@ -1,6 +1,6 @@
 // Service worker: κρατά τα αρχεία της εφαρμογής για γρήγορο άνοιγμα.
 // Τα δεδομένα (Supabase) φορτώνονται πάντα ζωντανά από το δίκτυο.
-const CACHE = 'diktyo-v8';
+const CACHE = 'diktyo-v9';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {

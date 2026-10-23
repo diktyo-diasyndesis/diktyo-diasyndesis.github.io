@@ -36,6 +36,7 @@ async function callGemini(system: string, prompt: string, opts: { json?: boolean
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      signal: AbortSignal.timeout(opts.search ? 60000 : 40000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],

@@ -29,11 +29,14 @@ type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
 
 /* Mistral (ευρωπαϊκή υπηρεσία AI): χρησιμοποιείται αν υπάρχει το μυστικό MISTRAL_API_KEY */
 async function callMistral(system: string, prompt: string, json: boolean): Promise<GeminiOut> {
-  const key = Deno.env.get("MISTRAL_API_KEY")!;
-  const model = Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest";
-  console.log(`[ai] Mistral → ${model}`);
+  // Mistral (ΕΕ) ή Groq (δωρεάν, χωρίς κάρτα): ίδια μορφή αιτήματος
+  const groq = !Deno.env.get("MISTRAL_API_KEY") && !!Deno.env.get("GROQ_API_KEY");
+  const key = groq ? Deno.env.get("GROQ_API_KEY")! : Deno.env.get("MISTRAL_API_KEY")!;
+  const model = groq ? (Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile") : (Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest");
+  const url = groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
+  console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${model}`);
   const t0 = Date.now();
-  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
     signal: AbortSignal.timeout(45000),
@@ -53,7 +56,7 @@ async function callMistral(system: string, prompt: string, json: boolean): Promi
 }
 
 async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
-  if (Deno.env.get("MISTRAL_API_KEY") && !opts.search) return callMistral(system, prompt, !!opts.json);
+  if ((Deno.env.get("MISTRAL_API_KEY") || Deno.env.get("GROQ_API_KEY")) && !opts.search) return callMistral(system, prompt, !!opts.json);
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) { console.error("[ai] λείπει το GEMINI_API_KEY"); throw new Error("NO_AI_KEY"); }
   console.log(`[ai] κλειδί: ${key.slice(0, 3)}… (${key.length} χαρακτήρες)`);

@@ -31,7 +31,8 @@ type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
 async function callMistral(system: string, prompt: string, json: boolean): Promise<GeminiOut> {
   // Mistral (ΕΕ) ή Groq (δωρεάν, χωρίς κάρτα): ίδια μορφή αιτήματος
   const groq = !Deno.env.get("MISTRAL_API_KEY") && !!Deno.env.get("GROQ_API_KEY");
-  const key = groq ? Deno.env.get("GROQ_API_KEY")! : Deno.env.get("MISTRAL_API_KEY")!;
+  const key = (groq ? Deno.env.get("GROQ_API_KEY")! : Deno.env.get("MISTRAL_API_KEY")!).trim().replace(/^["']|["']$/g, "");
+  console.log(`[ai] κλειδί ${groq ? "Groq" : "Mistral"}: ${key.slice(0, 4)}… (${key.length} χαρακτήρες)`);
   const model = groq ? (Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile") : (Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest");
   const url = groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
   console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${model}`);
@@ -46,9 +47,9 @@ async function callMistral(system: string, prompt: string, json: boolean): Promi
       ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
   });
-  console.log(`[ai] Mistral → ${res.status} σε ${Date.now() - t0}ms`);
+  console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${res.status} σε ${Date.now() - t0}ms`);
   if (res.status === 429) throw new Error("AI_BUSY");
-  if (!res.ok) { console.error("Mistral error:", res.status, await res.text()); throw new Error("AI_FAILED"); }
+  if (!res.ok) { console.error(`${groq ? "Groq" : "Mistral"} error:`, res.status, await res.text()); throw new Error("AI_FAILED"); }
   const data = await res.json();
   const text = String(data?.choices?.[0]?.message?.content || "").trim();
   if (!text) throw new Error("AI_FAILED");
@@ -57,7 +58,7 @@ async function callMistral(system: string, prompt: string, json: boolean): Promi
 
 async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
   if ((Deno.env.get("MISTRAL_API_KEY") || Deno.env.get("GROQ_API_KEY")) && !opts.search) return callMistral(system, prompt, !!opts.json);
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = Deno.env.get("GEMINI_API_KEY")?.trim();
   if (!key) { console.error("[ai] λείπει το GEMINI_API_KEY"); throw new Error("NO_AI_KEY"); }
   console.log(`[ai] κλειδί: ${key.slice(0, 3)}… (${key.length} χαρακτήρες)`);
   const models = [Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest", "gemini-2.5-flash"];

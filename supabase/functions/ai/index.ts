@@ -27,7 +27,33 @@ const FOOTER = "Το δελτίο συντάχθηκε αυτόματα από �
 
 type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
 
+/* Mistral (ευρωπαϊκή υπηρεσία AI): χρησιμοποιείται αν υπάρχει το μυστικό MISTRAL_API_KEY */
+async function callMistral(system: string, prompt: string, json: boolean): Promise<GeminiOut> {
+  const key = Deno.env.get("MISTRAL_API_KEY")!;
+  const model = Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest";
+  console.log(`[ai] Mistral → ${model}`);
+  const t0 = Date.now();
+  const res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+    signal: AbortSignal.timeout(45000),
+    body: JSON.stringify({
+      model, temperature: 0.4,
+      messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+    }),
+  });
+  console.log(`[ai] Mistral → ${res.status} σε ${Date.now() - t0}ms`);
+  if (res.status === 429) throw new Error("AI_BUSY");
+  if (!res.ok) { console.error("Mistral error:", res.status, await res.text()); throw new Error("AI_FAILED"); }
+  const data = await res.json();
+  const text = String(data?.choices?.[0]?.message?.content || "").trim();
+  if (!text) throw new Error("AI_FAILED");
+  return { text, sources: [] };
+}
+
 async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
+  if (Deno.env.get("MISTRAL_API_KEY") && !opts.search) return callMistral(system, prompt, !!opts.json);
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) { console.error("[ai] λείπει το GEMINI_API_KEY"); throw new Error("NO_AI_KEY"); }
   console.log(`[ai] κλειδί: ${key.slice(0, 3)}… (${key.length} χαρακτήρες)`);
@@ -67,6 +93,7 @@ async function callGemini(system: string, prompt: string, opts: { json?: boolean
       continue;
     }
     last = `${res.status} ${await res.text()}`;
+    console.error(`[ai] Gemini error: ${last.slice(0, 500)}`);
     if (res.status === 429) throw new Error("AI_BUSY");
     if (res.status !== 404) break;
   }

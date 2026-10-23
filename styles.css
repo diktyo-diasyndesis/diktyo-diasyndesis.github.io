@@ -5,6 +5,7 @@
   --open:#0F9C83; --open-soft:#DCF3EE;
   --warm:#E29A1F; --warm-ink:#8A5A08; --warm-soft:#FCF0DA;
   --danger:#B93A2B; --danger-soft:#FBE6E3;
+  --k-ev:#6B4FBB; --k-yl:#3F7D3A; --k-di:#B4367A; --k-ne:#5B6B7A; --k-kp:#0E7490;
   --shadow:0 1px 2px rgba(15,42,68,.06),0 6px 18px -10px rgba(15,42,68,.25);
   --f-body:"Commissioner","Segoe UI",system-ui,-apple-system,sans-serif;
   --f-display:"Commissioner","Segoe UI",system-ui,sans-serif;
@@ -16,6 +17,7 @@
   --open:#3CC7AC; --open-soft:#123430;
   --warm:#F2B54E; --warm-ink:#F2B54E; --warm-soft:#33281A;
   --danger:#F08070; --danger-soft:#3A1D1A;
+  --k-ev:#A894F0; --k-yl:#7CC474; --k-di:#EE87BE; --k-ne:#A3B1BF; --k-kp:#4FC3D9;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 20px -12px rgba(0,0,0,.6);
   color-scheme:dark }}
 :root[data-theme="dark"]{
@@ -24,6 +26,7 @@
   --open:#3CC7AC; --open-soft:#123430;
   --warm:#F2B54E; --warm-ink:#F2B54E; --warm-soft:#33281A;
   --danger:#F08070; --danger-soft:#3A1D1A;
+  --k-ev:#A894F0; --k-yl:#7CC474; --k-di:#EE87BE; --k-ne:#A3B1BF; --k-kp:#4FC3D9;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 20px -12px rgba(0,0,0,.6);
   color-scheme:dark }
 
@@ -139,6 +142,14 @@ p{margin:0}
 .kind.k-seminario{background:var(--open-soft);color:var(--open)}
 .kind.k-eykairia{background:var(--warm-soft);color:var(--warm-ink)}
 .chip-date{display:inline-flex;gap:6px;align-items:center;font-size:13px;font-weight:650;color:var(--open)}
+
+
+/* Νέα είδη αναρτήσεων */
+.post.k-ekdilosi{--k:var(--k-ev)} .post.k-yliko{--k:var(--k-yl)} .post.k-diakrisi{--k:var(--k-di)} .post.k-nea{--k:var(--k-ne)} .post.k-kalipraktiki{--k:var(--k-kp)}
+.kind.k-ekdilosi,.kind.k-yliko,.kind.k-diakrisi,.kind.k-nea,.kind.k-kalipraktiki{background:color-mix(in srgb,var(--kc) 14%,transparent);color:var(--kc)}
+.kind.k-ekdilosi{--kc:var(--k-ev)} .kind.k-yliko{--kc:var(--k-yl)} .kind.k-diakrisi{--kc:var(--k-di)} .kind.k-nea{--kc:var(--k-ne)} .kind.k-kalipraktiki{--kc:var(--k-kp)}
+.chip-date.k-ekdilosi{color:var(--k-ev)}
+.datebox.ev{background:color-mix(in srgb,var(--k-ev) 14%,transparent);color:var(--k-ev)}
 
 /* Λίστα σεμιναρίων */
 .sem{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}

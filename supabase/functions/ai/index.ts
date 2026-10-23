@@ -22,7 +22,7 @@ const json = (data: unknown, status = 200) =>
 
 const MONTHS_NOM = ["Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος","Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος"];
 const MONTHS_ACC = ["Ιανουάριο","Φεβρουάριο","Μάρτιο","Απρίλιο","Μάιο","Ιούνιο","Ιούλιο","Αύγουστο","Σεπτέμβριο","Οκτώβριο","Νοέμβριο","Δεκέμβριο"];
-const KIND = { drasi: "Δράση", seminario: "Ανοιχτό σεμινάριο", eykairia: "Δημόσια ευκαιρία" } as Record<string, string>;
+const KIND = { drasi: "Δράση", kalipraktiki: "Καλή πρακτική", ekdilosi: "Εκδήλωση", seminario: "Ανοιχτό σεμινάριο", eykairia: "Δημόσια ευκαιρία", yliko: "Υλικό για φοιτητές", diakrisi: "Διάκριση", nea: "Νέα του γραφείου" } as Record<string, string>;
 const FOOTER = "Το δελτίο συντάχθηκε αυτόματα από τις δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου και, για τις ευκαιρίες από δημόσιες πηγές, από αναζήτηση στο διαδίκτυο. Κανένα γραφείο δεν επεξεργάζεται το κείμενο.";
 
 type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
@@ -205,9 +205,9 @@ Deno.serve(async (req) => {
       const end2 = new Date(Date.UTC(y, m + 1, 1)).toISOString().slice(0, 10);
 
       const { data: posted } = await admin.from("posts").select("id,office_id,kind,title,body,event_date,event_time,source,created_at")
-        .gte("created_at", start).lt("created_at", end).neq("kind", "seminario").order("created_at");
+        .gte("created_at", start).lt("created_at", end).not("kind", "in", "(seminario,ekdilosi)").order("created_at");
       const { data: seminars } = await admin.from("posts").select("id,office_id,kind,title,body,event_date,event_time,source,created_at")
-        .eq("kind", "seminario").gte("event_date", start.slice(0, 10)).lt("event_date", end2).order("event_date");
+        .in("kind", ["seminario", "ekdilosi"]).gte("event_date", start.slice(0, 10)).lt("event_date", end2).order("event_date");
       const items = [...(posted || []), ...(seminars || [])];
       const sig = items.map((p) => `${p.id}:${p.created_at}:${(p.title || "").length}:${(p.body || "").length}`).join("|") || "empty";
 
@@ -229,7 +229,8 @@ Deno.serve(async (req) => {
           είδος: KIND[p.kind],
           τίτλος: p.title,
           κείμενο: (p.body || "").slice(0, 1200),
-          ...(p.kind === "seminario" ? { ημερομηνία_σεμιναρίου: p.event_date, ώρα: p.event_time } : {}),
+          ...(p.kind === "seminario" || p.kind === "ekdilosi" ? { ημερομηνία: p.event_date, ώρα: p.event_time } : {}),
+          ...(p.kind === "ekdilosi" && p.source ? { τόπος: p.source } : {}),
           ...(p.kind === "eykairia" && p.source ? { πηγή: p.source } : {}),
         }));
         content = await gemini(
@@ -246,7 +247,10 @@ Deno.serve(async (req) => {
 **${MONTHS_NOM[m - 1]} ${y}**
 (μια εισαγωγική παράγραφος 2-3 προτάσεων)
 ## Δράσεις των γραφείων   (μόνο αν υπάρχουν)
-## Ανοιχτά σεμινάρια για όλους τους φοιτητές   (μόνο αν υπάρχουν, με ημερομηνία και ώρα)
+## Καλές πρακτικές   (μόνο αν υπάρχουν)
+## Εκδηλώσεις και ανοιχτά σεμινάρια   (μόνο αν υπάρχουν, με ημερομηνία, ώρα και τόπο αν δίνεται)
+## Υλικό για φοιτητές   (μόνο αν υπάρχει)
+## Διακρίσεις και νέα των γραφείων   (μόνο αν υπάρχουν)
 ## Δημόσιες ευκαιρίες   (μόνο αν υπάρχουν)
 ${allowTrends ? "## Τάσεις του Δικτύου   (2-3 προτάσεις για τα κοινά θέματα που φαίνονται σε αναρτήσεις ΠΕΡΙΣΣΟΤΕΡΩΝ γραφείων, χωρίς να ξεχωρίζεις ιδρύματα και χωρίς γενικολογίες· αν δεν υπάρχει πραγματικά κοινό θέμα, παράλειψε την ενότητα)" : "(ΜΗΝ γράψεις ενότητα «Τάσεις»: δεν υπάρχουν αρκετές αναρτήσεις.)"}
 - Στην εισαγωγή μην γράφεις γενικόλογες φράσεις· πες απλά πόσα γραφεία μοιράστηκαν τι.

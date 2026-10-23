@@ -254,3 +254,10 @@ create unique index if not exists bulletins_month_key on public.bulletins (month
 drop policy if exists bulletins_read on public.bulletins;
 create policy bulletins_read on public.bulletins for select using (public.is_approved());
 drop policy if exists bulletins_admin on public.bulletins;
+
+-- =====================================================================
+-- Ενημέρωση: νέα είδη αναρτήσεων
+-- =====================================================================
+alter table public.posts drop constraint if exists posts_kind_check;
+alter table public.posts add constraint posts_kind_check
+  check (kind in ('drasi','kalipraktiki','ekdilosi','seminario','eykairia','yliko','diakrisi','nea'));

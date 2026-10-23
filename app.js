@@ -36,8 +36,9 @@ const OFFICES_SEED = [
 ].map(([id,short,name,city,region,domains]) => ({ id, short, name, city, region, domains, responsible:'', email:'', phone:'', website:'', logo_url:'', about:'' }));
 
 const REGION_ORDER = ['Αττική','Κεντρική Μακεδονία','Δυτική Μακεδονία','Αν. Μακεδονία & Θράκη','Θεσσαλία','Ήπειρος','Ιόνια Νησιά','Δυτική Ελλάδα','Πελοπόννησος','Νησιά Αιγαίου','Κρήτη'];
-const KINDS = { drasi:'Δράση', seminario:'Ανοιχτό σεμινάριο', eykairia:'Δημόσια ευκαιρία' };
-const KIND_PLURAL = { all:'Όλα', drasi:'Δράσεις', seminario:'Σεμινάρια', eykairia:'Ευκαιρίες' };
+const KINDS = { drasi:'Δράση', kalipraktiki:'Καλή πρακτική', ekdilosi:'Εκδήλωση', seminario:'Ανοιχτό σεμινάριο', eykairia:'Δημόσια ευκαιρία', yliko:'Υλικό για φοιτητές', diakrisi:'Διάκριση', nea:'Νέα του γραφείου' };
+const DATED = ['seminario', 'ekdilosi'];
+const KIND_PLURAL = { all:'Όλα', drasi:'Δράσεις', kalipraktiki:'Καλές πρακτικές', ekdilosi:'Εκδηλώσεις', seminario:'Σεμινάρια', eykairia:'Ευκαιρίες', yliko:'Υλικό', diakrisi:'Διακρίσεις', nea:'Νέα' };
 const M_SHORT = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ'];
 const M_NOM = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
 const M_GEN = ['Ιανουαρίου','Φεβρουαρίου','Μαρτίου','Απριλίου','Μαΐου','Ιουνίου','Ιουλίου','Αυγούστου','Σεπτεμβρίου','Οκτωβρίου','Νοεμβρίου','Δεκεμβρίου'];
@@ -67,6 +68,9 @@ const mock = (() => {
       P('uth','drasi','Επισκέψεις φοιτητών σε επιχειρήσεις της περιοχής','Ομάδες φοιτητών επισκέφθηκαν παραγωγικές μονάδες και συζήτησαν με στελέχη τους για τις απαιτήσεις των θέσεων.','2026-10-02T10:00:00Z'),
       P('uoi','seminario','Επιχειρηματικότητα για φοιτητές: από την ιδέα στο σχέδιο','Εισαγωγικό σεμινάριο για όσους σκέφτονται να ξεκινήσουν κάτι δικό τους.','2026-10-01T10:00:00Z',{event_date:'2026-12-03',event_time:'16:00'}),
       P('duth','eykairia','Νέα πρόσκληση προγράμματος της ΔΥΠΑ για νέους','Σύνοψη για ενημέρωση φοιτητών και αποφοίτων. Για όρους και προθεσμίες ισχύει η επίσημη ανακοίνωση.','2026-09-29T10:00:00Z',{source:'Δημόσια ανακοίνωση'}),
+      P('uth','ekdilosi','Ημέρα Καριέρας Θεσσαλίας 2026','Εκθέτες από όλους τους κλάδους και σύντομες ομιλίες για τη μετάβαση στην αγορά εργασίας.','2026-10-21T10:00:00Z',{event_date:'2026-11-14',event_time:'10:00',source:'Βόλος, Συνεδριακό Κέντρο'}),
+      P('upatras','kalipraktiki','«Γραφείο στο αμφιθέατρο»: 10 λεπτά στην αρχή του μαθήματος','Σε συνεννόηση με διδάσκοντες, ένα στέλεχος του γραφείου παρουσιάζει σύντομα τις υπηρεσίες στην αρχή μαθημάτων πρώτου έτους. Η επισκεψιμότητα του γραφείου αυξήθηκε αισθητά.','2026-10-19T10:00:00Z'),
+      P('ekpa','yliko','Οδηγός σύνταξης βιογραφικού (PDF)','Ο ενημερωμένος οδηγός μας για φοιτητές και αποφοίτους, ελεύθερα διαθέσιμος.','2026-10-16T10:00:00Z',{link:'https://example.org/odigos'}),
       P('ionio','drasi','Εργαστήριο για τη δημιουργική βιομηχανία','Επαγγελματίες από τη μουσική, τα οπτικοακουστικά μέσα και τον σχεδιασμό μίλησαν για τις διαδρομές τους.','2026-09-28T10:00:00Z')
     ],
     threads: [
@@ -381,6 +385,9 @@ function postCard(p, { compact = false } = {}) {
   if (p.kind === 'seminario' && p.event_date) {
     const { d, m } = fmtDay(p.event_date);
     foot = `<span class="chip-date">${I.cal} ${d} ${m}${p.event_time ? ' · ' + esc(p.event_time) : ''} · διαδικτυακά</span>`;
+  } else if (p.kind === 'ekdilosi' && p.event_date) {
+    const { d, m } = fmtDay(p.event_date);
+    foot = `<span class="chip-date k-ekdilosi">${I.cal} ${d} ${m}${p.event_time ? ' · ' + esc(p.event_time) : ''}${p.source ? ' · ' + esc(p.source) : ''}</span>`;
   } else if (p.kind === 'eykairia' && p.source) foot = `<span class="small muted">${esc(p.source)}</span>`;
   else foot = `<span class="small muted">${fmtDate(p.created_at)}</span>`;
   return `<article class="card post k-${p.kind}">
@@ -389,7 +396,7 @@ function postCard(p, { compact = false } = {}) {
     <div data-lang="el"><h3>${esc(p.title)}</h3>${body ? `<p style="margin-top:8px">${esc(body)}</p>` : ''}</div>
     <div class="foot">${foot}<span style="display:flex;gap:6px">
 
-      ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : 'Περισσότερα'}</a>` : ''}
+      ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : p.kind === 'yliko' ? 'Άνοιγμα υλικού' : 'Περισσότερα'}</a>` : ''}
       ${mine || (isAdmin() && !compact) ? `<button class="btn sm ghost danger" data-del-post="${p.id}">Διαγραφή</button>` : ''}
     </span></div>
   </article>`;
@@ -397,11 +404,12 @@ function postCard(p, { compact = false } = {}) {
 
 function upcomingSeminars() {
   const t = todayISO();
-  return S.posts.filter(p => p.kind === 'seminario' && p.event_date && p.event_date >= t).sort((a, b) => a.event_date.localeCompare(b.event_date));
+  return S.posts.filter(p => DATED.includes(p.kind) && p.event_date && p.event_date >= t).sort((a, b) => a.event_date.localeCompare(b.event_date));
 }
 function semRow(p) {
   const { d, m } = fmtDay(p.event_date);
-  return `<div class="sem"><div class="datebox"><b>${d}</b><span>${m}</span></div><div style="min-width:0"><h3 style="font-size:14.5px">${esc(p.title)}</h3><div class="small muted">${esc(officeShort(p.office_id))}${p.event_time ? ' · ' + esc(p.event_time) : ''} · ανοιχτό σε όλα τα ΑΕΙ</div></div></div>`;
+  const ev = p.kind === 'ekdilosi';
+  return `<div class="sem"><div class="datebox${ev ? ' ev' : ''}"><b>${d}</b><span>${m}</span></div><div style="min-width:0"><h3 style="font-size:14.5px">${esc(p.title)}</h3><div class="small muted">${esc(officeShort(p.office_id))}${p.event_time ? ' · ' + esc(p.event_time) : ''} · ${ev ? (p.source ? esc(p.source) : 'εκδήλωση') : 'σεμινάριο ανοιχτό σε όλα τα ΑΕΙ'}</div></div></div>`;
 }
 
 function vHome() {
@@ -416,13 +424,13 @@ function vHome() {
     <div style="position:relative;display:flex;flex-direction:column;gap:10px">
       <div class="eyebrow">Καλώς ήρθατε · Γραφείο Διασύνδεσης ${esc(officeShort(p.office_id))}</div>
       <h1>Τα Γραφεία Διασύνδεσης όλης της χώρας, σε ένα κοινό σημείο</h1>
-      <p class="lede">Κάθε γραφείο δείχνει τη δουλειά του, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και μοιράζεται δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
+      <p class="lede">Κάθε γραφείο δείχνει τη δουλειά του, μοιράζεται καλές πρακτικές και υλικό, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και ενημερώνει για δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
       <div class="hero-actions"><button class="btn on" data-act="new-post">Νέα ανάρτηση</button><button class="btn out" data-go="deltio">Δελτίο του Δικτύου</button></div>
     </div>
     <div class="hero-stats">
       <div class="hstat"><b>${S.offices.length}</b><span>ιδρύματα στο δίκτυο</span></div>
       <div class="hstat"><b>${drasis}</b><span>δράσεις το τελευταίο εξάμηνο</span></div>
-      <div class="hstat"><b>${sems.length}</b><span>ανοιχτά σεμινάρια</span></div>
+      <div class="hstat"><b>${sems.length}</b><span>επόμενες εκδηλώσεις και σεμινάρια</span></div>
       <div class="hstat"><b>${active}</b><span>γραφεία με αναρτήσεις</span></div>
     </div>
   </section>
@@ -433,8 +441,8 @@ function vHome() {
       <div class="grid">${S.posts.slice(0, 4).map(p => postCard(p, { compact: true })).join('') || '<div class="card empty">Δεν υπάρχουν ακόμη αναρτήσεις. Γίνετε το πρώτο γραφείο που θα μοιραστεί κάτι.</div>'}</div>
     </section>
     <aside class="stack" style="gap:14px">
-      <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενα σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
-        ${sems.slice(0, 4).map(semRow).join('') || '<p class="small muted" style="padding:10px 0">Δεν έχουν ανακοινωθεί ανοιχτά σεμινάρια.</p>'}</div>
+      <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενες εκδηλώσεις και σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
+        ${sems.slice(0, 4).map(semRow).join('') || '<p class="small muted" style="padding:10px 0">Δεν έχουν ανακοινωθεί εκδηλώσεις ή σεμινάρια.</p>'}</div>
       <div class="card pad teaser stack" style="gap:8px"><div class="eyebrow">Αυτόματη σύνοψη</div><h3>Δελτίο του Δικτύου</h3>
         <p class="small">Κάθε μήνα συντάσσεται αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων, μαζί με δημόσιες ευκαιρίες για φοιτητές.</p>
         <div><button class="btn warm sm" data-go="deltio">Άνοιγμα δελτίου</button></div></div>
@@ -491,14 +499,19 @@ function vPosts() {
   const regions = REGION_ORDER.filter(r => S.offices.some(o => o.region === r));
   let list = S.posts.filter(p => S.kind === 'all' || p.kind === S.kind);
   if (S.region) list = list.filter(p => S.O[p.office_id]?.region === S.region);
-  if (S.kind === 'seminario') list = list.slice().sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
+  if (DATED.includes(S.kind)) list = list.slice().sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
   const intro = {
-    all: 'Ό,τι μοιράζονται τα γραφεία: δράσεις, ανοιχτά σεμινάρια και δημόσιες ευκαιρίες.',
+    all: 'Ό,τι μοιράζονται τα γραφεία: δράσεις, καλές πρακτικές, εκδηλώσεις, σεμινάρια, ευκαιρίες, υλικό, διακρίσεις και νέα.',
+    kalipraktiki: 'Ιδέες που δούλεψαν σε ένα γραφείο και πώς έγιναν, για όποιον θέλει να εμπνευστεί. Κάθε ίδρυμα κρατά τις δικές του διαδικασίες.',
+    ekdilosi: 'Ημέρες καριέρας, ημερίδες και άλλες εκδηλώσεις των γραφείων, με ημερομηνία και τόπο.',
+    yliko: 'Δημόσιοι οδηγοί, βίντεο και υλικό που έφτιαξαν τα γραφεία για φοιτητές και θέλουν να το μοιραστούν.',
+    diakrisi: 'Βραβεία, αναγνωρίσεις και ορόσημα των γραφείων.',
+    nea: 'Πρακτικά νέα των γραφείων: νέο ωράριο, νέα ιστοσελίδα, νέα υπηρεσία για φοιτητές.',
     drasi: 'Ό,τι θέλει κάθε γραφείο να δείξει: μια εκδήλωση που πέτυχε, ένα νέο πρόγραμμα, μια ιδέα που δούλεψε.',
     seminario: 'Διαδικτυακά σεμινάρια που ένα γραφείο ανοίγει και σε φοιτητές άλλων ιδρυμάτων. Οι εγγραφές γίνονται στο σύστημα του ιδρύματος που τα διοργανώνει.',
     eykairia: 'Προγράμματα, διαγωνισμοί και ημερίδες που έχουν ήδη ανακοινωθεί δημόσια.'
   }[S.kind];
-  const dot = { all:'var(--ink)', drasi:'var(--brand)', seminario:'var(--open)', eykairia:'var(--warm)' };
+  const dot = { all:'var(--ink)', drasi:'var(--brand)', kalipraktiki:'var(--k-kp)', ekdilosi:'var(--k-ev)', seminario:'var(--open)', eykairia:'var(--warm)', yliko:'var(--k-yl)', diakrisi:'var(--k-di)', nea:'var(--k-ne)' };
   return `
   <div class="page-head"><div><h1>Αναρτήσεις</h1><p class="lede">${intro}</p></div><button class="btn primary" data-act="new-post">Νέα ανάρτηση</button></div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">
@@ -539,7 +552,8 @@ function composeBulletin(ym, demoAi = false) {
   const posts = S.posts.filter(p => p.created_at >= start && p.created_at < end);
   const dr = posts.filter(p => p.kind === 'drasi');
   const ey = posts.filter(p => p.kind === 'eykairia');
-  const se = S.posts.filter(p => p.kind === 'seminario' && p.event_date && p.event_date >= start.slice(0, 10) && p.event_date < in2)
+  const other = posts.filter(p => !['drasi', 'eykairia', 'seminario', 'ekdilosi'].includes(p.kind));
+  const se = S.posts.filter(p => DATED.includes(p.kind) && p.event_date && p.event_date >= start.slice(0, 10) && p.event_date < in2)
     .sort((a, b) => a.event_date.localeCompare(b.event_date));
   const offices = new Set([...posts, ...se].map(p => p.office_id));
   const firstSentence = s => { const t = (s || '').split(/(?<=[.!;])\s/)[0].trim(); return t.length > 180 ? t.slice(0, 177) + '…' : t; };
@@ -555,7 +569,8 @@ function composeBulletin(ym, demoAi = false) {
     lines.push(`Τον ${M_ACC[m - 1]}, ${offices.size} ${offices.size === 1 ? 'γραφείο διασύνδεσης μοιράστηκε' : 'γραφεία διασύνδεσης μοιράστηκαν'} στο Δίκτυο ${list}.`);
   }
   if (dr.length) { lines.push('', '## Δράσεις των γραφείων'); dr.forEach(p => lines.push(`- **${officeShort(p.office_id)}:** ${p.title}. ${firstSentence(p.body)}`.trim())); }
-  if (se.length) { lines.push('', '## Ανοιχτά σεμινάρια για όλους τους φοιτητές'); se.forEach(p => { const { d, m: mm } = fmtDay(p.event_date); lines.push(`- **${d} ${mm}${p.event_time ? ', ' + p.event_time : ''} · ${officeShort(p.office_id)}:** ${p.title}`); }); }
+  if (se.length) { lines.push('', '## Εκδηλώσεις και ανοιχτά σεμινάρια'); se.forEach(p => { const { d, m: mm } = fmtDay(p.event_date); lines.push(`- **${d} ${mm}${p.event_time ? ', ' + p.event_time : ''} · ${officeShort(p.office_id)}:** ${p.title}`); }); }
+  if (other.length) { lines.push('', '## Καλές πρακτικές, υλικό και νέα'); other.forEach(p => lines.push(`- **${officeShort(p.office_id)} · ${KINDS[p.kind]}:** ${p.title}`)); }
   if (ey.length) { lines.push('', '## Δημόσιες ευκαιρίες'); ey.forEach(p => lines.push(`- **${p.title}** (ανάρτηση ${officeShort(p.office_id)})`)); }
   if (demoAi && offices.size) lines.push('', '## Τάσεις του Δικτύου', 'Στην προεπισκόπηση εδώ εμφανίζονται 2-3 προτάσεις για τα κοινά θέματα που απασχολούν τα γραφεία, χωρίς συγκρίσεις μεταξύ ιδρυμάτων.');
   lines.push('', 'Το δελτίο συντάχθηκε αυτόματα αποκλειστικά από δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου.');
@@ -794,6 +809,14 @@ function newPostDialog(kind = 'drasi') {
       $('#p_extra').innerHTML = k === 'seminario'
         ? `<div class="form"><div class="row2"><div class="field"><label for="p_date">Ημερομηνία</label><input class="input" type="date" id="p_date" required min="${todayISO()}"></div><div class="field"><label for="p_time">Ώρα</label><input class="input" type="time" id="p_time" value="17:00"></div></div>
            <div class="field"><label for="p_link">Σύνδεσμος εγγραφής</label><input class="input" type="url" id="p_link" placeholder="https://"><span class="hint">Οι εγγραφές γίνονται στο σύστημα του ιδρύματός σας.</span></div></div>`
+        : k === 'ekdilosi'
+        ? `<div class="form"><div class="row2"><div class="field"><label for="p_date">Ημερομηνία</label><input class="input" type="date" id="p_date" required></div><div class="field"><label for="p_time">Ώρα</label><input class="input" type="time" id="p_time" value="10:00"></div></div>
+           <div class="field"><label for="p_source">Τόπος</label><input class="input" id="p_source" placeholder="π.χ. Κοζάνη, Αμφιθέατρο Α, ή διαδικτυακά" maxlength="120"></div>
+           <div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
+        : k === 'yliko'
+        ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος στο υλικό</label><input class="input" type="url" id="p_link" placeholder="https://" required><span class="hint">Μόνο υλικό που είναι ήδη δημόσιο, π.χ. στην ιστοσελίδα του γραφείου σας.</span></div></div>`
+        : ['nea', 'diakrisi', 'kalipraktiki'].includes(k)
+        ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
         : k === 'eykairia'
         ? `<div class="form"><div class="field"><label for="p_source">Φορέας ή πηγή</label><input class="input" id="p_source" placeholder="π.χ. Δημόσια ανακοίνωση" maxlength="120"></div>
            <div class="field"><label for="p_link">Σύνδεσμος επίσημης ανακοίνωσης</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
@@ -813,7 +836,8 @@ function newPostDialog(kind = 'drasi') {
       e.preventDefault();
       const k = $('#p_kind').value;
       const row = { kind: k, title: $('#p_title').value.trim(), body: $('#p_body').value.trim(), link: $('#p_link')?.value.trim() || '' };
-      if (k === 'seminario') { row.event_date = $('#p_date').value; row.event_time = $('#p_time').value; }
+      if (DATED.includes(k)) { row.event_date = $('#p_date').value; row.event_time = $('#p_time').value; }
+      if (k === 'ekdilosi') row.source = $('#p_source').value.trim();
       if (k === 'eykairia') row.source = $('#p_source').value.trim();
       const btn = e.submitter; if (btn) btn.disabled = true;
       try { await api.createPost(row); await refreshPosts(); S.bulCache = {}; close(); toast('Δημοσιεύτηκε'); go('anartiseis', { kind: k, region: '' }); }

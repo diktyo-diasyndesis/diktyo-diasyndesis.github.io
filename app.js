@@ -36,9 +36,9 @@ const OFFICES_SEED = [
 ].map(([id,short,name,city,region,domains]) => ({ id, short, name, city, region, domains, responsible:'', email:'', phone:'', website:'', logo_url:'', about:'' }));
 
 const REGION_ORDER = ['Αττική','Κεντρική Μακεδονία','Δυτική Μακεδονία','Αν. Μακεδονία & Θράκη','Θεσσαλία','Ήπειρος','Ιόνια Νησιά','Δυτική Ελλάδα','Πελοπόννησος','Νησιά Αιγαίου','Κρήτη'];
-const KINDS = { drasi:'Δράση', kalipraktiki:'Καλή πρακτική', ekdilosi:'Εκδήλωση', seminario:'Ανοιχτό σεμινάριο', eykairia:'Δημόσια ευκαιρία', yliko:'Υλικό για φοιτητές', diakrisi:'Διάκριση', nea:'Νέα του γραφείου' };
+const KINDS = { drasi:'Δράση', ekdilosi:'Εκδήλωση', seminario:'Ανοιχτό σεμινάριο', eykairia:'Δημόσια ευκαιρία', yliko:'Υλικό για φοιτητές', diakrisi:'Διάκριση', nea:'Νέα του γραφείου' };
 const DATED = ['seminario', 'ekdilosi'];
-const KIND_PLURAL = { all:'Όλα', drasi:'Δράσεις', kalipraktiki:'Καλές πρακτικές', ekdilosi:'Εκδηλώσεις', seminario:'Σεμινάρια', eykairia:'Ευκαιρίες', yliko:'Υλικό', diakrisi:'Διακρίσεις', nea:'Νέα' };
+const KIND_PLURAL = { all:'Όλα τα είδη', drasi:'Δράσεις', ekdilosi:'Εκδηλώσεις', seminario:'Σεμινάρια', eykairia:'Ευκαιρίες', yliko:'Υλικό', diakrisi:'Διακρίσεις', nea:'Νέα' };
 const M_SHORT = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ'];
 const M_NOM = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
 const M_GEN = ['Ιανουαρίου','Φεβρουαρίου','Μαρτίου','Απριλίου','Μαΐου','Ιουνίου','Ιουλίου','Αυγούστου','Σεπτεμβρίου','Οκτωβρίου','Νοεμβρίου','Δεκεμβρίου'];
@@ -69,7 +69,7 @@ const mock = (() => {
       P('uoi','seminario','Επιχειρηματικότητα για φοιτητές: από την ιδέα στο σχέδιο','Εισαγωγικό σεμινάριο για όσους σκέφτονται να ξεκινήσουν κάτι δικό τους.','2026-10-01T10:00:00Z',{event_date:'2026-12-03',event_time:'16:00'}),
       P('duth','eykairia','Νέα πρόσκληση προγράμματος της ΔΥΠΑ για νέους','Σύνοψη για ενημέρωση φοιτητών και αποφοίτων. Για όρους και προθεσμίες ισχύει η επίσημη ανακοίνωση.','2026-09-29T10:00:00Z',{source:'Δημόσια ανακοίνωση'}),
       P('uth','ekdilosi','Ημέρα Καριέρας Θεσσαλίας 2026','Εκθέτες από όλους τους κλάδους και σύντομες ομιλίες για τη μετάβαση στην αγορά εργασίας.','2026-10-21T10:00:00Z',{event_date:'2026-11-14',event_time:'10:00',source:'Βόλος, Συνεδριακό Κέντρο'}),
-      P('upatras','kalipraktiki','«Γραφείο στο αμφιθέατρο»: 10 λεπτά στην αρχή του μαθήματος','Σε συνεννόηση με διδάσκοντες, ένα στέλεχος του γραφείου παρουσιάζει σύντομα τις υπηρεσίες στην αρχή μαθημάτων πρώτου έτους. Η επισκεψιμότητα του γραφείου αυξήθηκε αισθητά.','2026-10-19T10:00:00Z'),
+      P('upatras','drasi','«Γραφείο στο αμφιθέατρο»: 10 λεπτά στην αρχή του μαθήματος','Σε συνεννόηση με διδάσκοντες, ένα στέλεχος του γραφείου παρουσιάζει σύντομα τις υπηρεσίες στην αρχή μαθημάτων πρώτου έτους. Η επισκεψιμότητα του γραφείου αυξήθηκε αισθητά.','2026-10-19T10:00:00Z'),
       P('ekpa','yliko','Οδηγός σύνταξης βιογραφικού (PDF)','Ο ενημερωμένος οδηγός μας για φοιτητές και αποφοίτους, ελεύθερα διαθέσιμος.','2026-10-16T10:00:00Z',{link:'https://example.org/odigos'}),
       P('ionio','drasi','Εργαστήριο για τη δημιουργική βιομηχανία','Επαγγελματίες από τη μουσική, τα οπτικοακουστικά μέσα και τον σχεδιασμό μίλησαν για τις διαδρομές τους.','2026-09-28T10:00:00Z')
     ],
@@ -424,7 +424,7 @@ function vHome() {
     <div style="position:relative;display:flex;flex-direction:column;gap:10px">
       <div class="eyebrow">Καλώς ήρθατε · Γραφείο Διασύνδεσης ${esc(officeShort(p.office_id))}</div>
       <h1>Τα Γραφεία Διασύνδεσης όλης της χώρας, σε ένα κοινό σημείο</h1>
-      <p class="lede">Κάθε γραφείο δείχνει τη δουλειά του, μοιράζεται καλές πρακτικές και υλικό, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και ενημερώνει για δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
+      <p class="lede">Κάθε γραφείο δείχνει τη δουλειά του, μοιράζεται υλικό, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και ενημερώνει για δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
       <div class="hero-actions"><button class="btn on" data-act="new-post">Νέα ανάρτηση</button><button class="btn out" data-go="deltio">Δελτίο του Δικτύου</button></div>
     </div>
     <div class="hero-stats">
@@ -501,8 +501,7 @@ function vPosts() {
   if (S.region) list = list.filter(p => S.O[p.office_id]?.region === S.region);
   if (DATED.includes(S.kind)) list = list.slice().sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
   const intro = {
-    all: 'Ό,τι μοιράζονται τα γραφεία: δράσεις, καλές πρακτικές, εκδηλώσεις, σεμινάρια, ευκαιρίες, υλικό, διακρίσεις και νέα.',
-    kalipraktiki: 'Ιδέες που δούλεψαν σε ένα γραφείο και πώς έγιναν, για όποιον θέλει να εμπνευστεί. Κάθε ίδρυμα κρατά τις δικές του διαδικασίες.',
+    all: 'Ό,τι μοιράζονται τα γραφεία: δράσεις, εκδηλώσεις, σεμινάρια, ευκαιρίες, υλικό, διακρίσεις και νέα.',
     ekdilosi: 'Ημέρες καριέρας, ημερίδες και άλλες εκδηλώσεις των γραφείων, με ημερομηνία και τόπο.',
     yliko: 'Δημόσιοι οδηγοί, βίντεο και υλικό που έφτιαξαν τα γραφεία για φοιτητές και θέλουν να το μοιραστούν.',
     diakrisi: 'Βραβεία, αναγνωρίσεις και ορόσημα των γραφείων.',
@@ -511,12 +510,11 @@ function vPosts() {
     seminario: 'Διαδικτυακά σεμινάρια που ένα γραφείο ανοίγει και σε φοιτητές άλλων ιδρυμάτων. Οι εγγραφές γίνονται στο σύστημα του ιδρύματος που τα διοργανώνει.',
     eykairia: 'Προγράμματα, διαγωνισμοί και ημερίδες που έχουν ήδη ανακοινωθεί δημόσια.'
   }[S.kind];
-  const dot = { all:'var(--ink)', drasi:'var(--brand)', kalipraktiki:'var(--k-kp)', ekdilosi:'var(--k-ev)', seminario:'var(--open)', eykairia:'var(--warm)', yliko:'var(--k-yl)', diakrisi:'var(--k-di)', nea:'var(--k-ne)' };
   return `
   <div class="page-head"><div><h1>Αναρτήσεις</h1><p class="lede">${intro}</p></div><button class="btn primary" data-act="new-post">Νέα ανάρτηση</button></div>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">
-    <div class="tabs" role="tablist">${Object.keys(KIND_PLURAL).map(k => `<button class="tab" role="tab" data-kind-tab="${k}" aria-selected="${S.kind === k}" style="--k:${dot[k]}"><span class="dot"></span>${KIND_PLURAL[k]}</button>`).join('')}</div>
-    <select id="regionSel" aria-label="Φίλτρο περιφέρειας" style="max-width:240px"><option value="">Όλες οι περιφέρειες</option>${regions.map(r => `<option ${S.region === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
+  <div class="filters">
+    <select id="kindSel" aria-label="Φίλτρο είδους">${Object.entries(KIND_PLURAL).map(([k, l]) => `<option value="${k}" ${S.kind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <select id="regionSel" aria-label="Φίλτρο περιφέρειας"><option value="">Όλες οι περιφέρειες</option>${regions.map(r => `<option ${S.region === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
   </div>
   <div class="grid">${list.map(p => postCard(p)).join('') || '<div class="card empty">Δεν υπάρχουν αναρτήσεις με αυτά τα φίλτρα.</div>'}</div>`;
 }
@@ -815,7 +813,7 @@ function newPostDialog(kind = 'drasi') {
            <div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
         : k === 'yliko'
         ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος στο υλικό</label><input class="input" type="url" id="p_link" placeholder="https://" required><span class="hint">Μόνο υλικό που είναι ήδη δημόσιο, π.χ. στην ιστοσελίδα του γραφείου σας.</span></div></div>`
-        : ['nea', 'diakrisi', 'kalipraktiki'].includes(k)
+        : ['nea', 'diakrisi'].includes(k)
         ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
         : k === 'eykairia'
         ? `<div class="form"><div class="field"><label for="p_source">Φορέας ή πηγή</label><input class="input" id="p_source" placeholder="π.χ. Δημόσια ανακοίνωση" maxlength="120"></div>
@@ -926,6 +924,7 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', async e => {
   if (e.target.id === 'regionSel') { S.region = e.target.value; render(); }
+  if (e.target.id === 'kindSel') { S.kind = e.target.value; render(); }
   if (e.target.id === 'logoFile') {
     const raw = e.target.files[0]; if (!raw) return;
     if (raw.size > 8 * 1024 * 1024) { toast('Το αρχείο ξεπερνά τα 8 MB.'); return; }

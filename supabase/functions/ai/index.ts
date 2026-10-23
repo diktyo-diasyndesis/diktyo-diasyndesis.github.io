@@ -122,12 +122,14 @@ async function gemini(system: string, prompt: string, asJson = false): Promise<s
 
 /* Δημόσιες ευκαιρίες από το διαδίκτυο (μόνο για τον τρέχοντα μήνα) */
 async function publicOpportunities(monthLabel: string): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
   try {
     const out = await callGemini(
       `Βρίσκεις στο διαδίκτυο ΤΡΕΧΟΥΣΕΣ δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους ελληνικών πανεπιστημίων: προγράμματα της ΔΥΠΑ, εθνικούς ή ευρωπαϊκούς διαγωνισμούς, υποτροφίες, προγράμματα πρακτικής ή απασχόλησης δημόσιων φορέων και ευρωπαϊκών θεσμών.
+ΣΗΜΕΡΙΝΗ ΗΜΕΡΟΜΗΝΙΑ: ${today}. Γράφεις ΜΟΝΟ ευκαιρίες που είναι ΑΝΟΙΧΤΕΣ σήμερα: η προθεσμία τους πρέπει να είναι μετά τις ${today}, ή να είναι συνεχούς υποβολής. Αν η προθεσμία έχει περάσει ή δεν είσαι βέβαιος, ΜΗΝ τη γράψεις.
 ΚΑΝΟΝΕΣ: μόνο από επίσημες δημόσιες πηγές (υπουργεία, ΔΥΠΑ, ΕΕ, δημόσιοι οργανισμοί). Όχι αγγελίες ιδιωτικών εταιρειών. Όχι ειδήσεις για συγκεκριμένα πανεπιστήμια. Αν δεν είσαι βέβαιος για κάτι ή έχει λήξει, μην το γράψεις.
 Μορφή: 3 έως 5 γραμμές λίστας, καθεμία "- **Τίτλος** (Φορέας): μία πρόταση περιγραφή, και προθεσμία αν αναφέρεται. [Επίσημη σελίδα](https://...)". Ο σύνδεσμος να είναι ακριβώς η διεύθυνση της επίσημης σελίδας που διάβασες· αν δεν την έχεις, παράλειψε τον σύνδεσμο. Γράφεις στα ελληνικά. Τίποτε άλλο, χωρίς εισαγωγή.`,
-      `Ποιες είναι οι σημαντικότερες ενεργές δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους στην Ελλάδα για τον μήνα ${monthLabel};`,
+      `Ποιες δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους στην Ελλάδα είναι ανοιχτές σήμερα (${today}) ή ανοίγουν μέσα στον ${monthLabel}; Μόνο όσες δεν έχουν λήξει.`,
       { search: true },
     );
     const items = out.text.split("\n").filter((l) => l.trim().startsWith("- ")).slice(0, 5);
@@ -136,7 +138,8 @@ async function publicOpportunities(monthLabel: string): Promise<string> {
     const label = (x: { title: string; uri: string }) => (x.title || new URL(x.uri).hostname.replace(/^www\./, "")).replace(/[\[\]]/g, "").slice(0, 60);
     const src = out.sources.filter((x) => (seen.has(x.uri) ? false : (seen.add(x.uri), true))).slice(0, 6)
       .map((x) => `[${label(x)}](${x.uri})`);
-    return `## Ευκαιρίες από δημόσιες πηγές\n${items.join("\n")}${src.length ? `\n\nΠηγές: ${src.join(" · ")}` : ""}\n\nΓια όρους και προθεσμίες ισχύει πάντα η επίσημη ανακοίνωση του φορέα.`;
+    void src;
+    return `## Ευκαιρίες από δημόσιες πηγές\n${items.join("\n")}\n\nΒρέθηκαν με αυτόματη αναζήτηση στο διαδίκτυο. Για όρους και προθεσμίες ισχύει πάντα η επίσημη ανακοίνωση του φορέα.`;
   } catch (e) {
     console.error("opportunities:", e instanceof Error ? e.message : e);
     return "";
@@ -201,13 +204,15 @@ Deno.serve(async (req) => {
 
       const { data: existing } = await admin.from("bulletins").select("*").eq("month", month).maybeSingle();
       const isCurrent = y === now.getUTCFullYear() && m === now.getUTCMonth() + 1;
-      const fresh = !isCurrent || (existing?.generated_at && Date.now() - new Date(existing.generated_at).getTime() < 7 * 864e5);
+      const fresh = !isCurrent || (existing?.generated_at && Date.now() - new Date(existing.generated_at).getTime() < 864e5);
       if (existing && existing.source_sig === sig && existing.ai && fresh) return json({ bulletin: existing });
 
       let content: string;
       if (!items.length) {
         content = `# Ο μήνας στα Γραφεία Διασύνδεσης\n**${MONTHS_NOM[m - 1]} ${y}**\n\nΤον ${MONTHS_ACC[m - 1]} δεν υπήρξαν ακόμη αναρτήσεις των γραφείων στο Δίκτυο.`;
       } else {
+        const officesN = new Set(items.map((p) => p.office_id)).size;
+        const allowTrends = items.length >= 3 && officesN >= 2;
         const data = items.map((p) => ({
           ίδρυμα: O[p.office_id]?.name || p.office_id,
           συντομογραφία: O[p.office_id]?.short || p.office_id,
@@ -232,11 +237,13 @@ Deno.serve(async (req) => {
 ## Δράσεις των γραφείων   (μόνο αν υπάρχουν)
 ## Ανοιχτά σεμινάρια για όλους τους φοιτητές   (μόνο αν υπάρχουν, με ημερομηνία και ώρα)
 ## Δημόσιες ευκαιρίες   (μόνο αν υπάρχουν)
-## Τάσεις του Δικτύου   (2-3 προτάσεις για τα κοινά θέματα που απασχολούν τα γραφεία συνολικά, χωρίς να ξεχωρίζεις ιδρύματα)
+${allowTrends ? "## Τάσεις του Δικτύου   (2-3 προτάσεις για τα κοινά θέματα που φαίνονται σε αναρτήσεις ΠΕΡΙΣΣΟΤΕΡΩΝ γραφείων, χωρίς να ξεχωρίζεις ιδρύματα και χωρίς γενικολογίες· αν δεν υπάρχει πραγματικά κοινό θέμα, παράλειψε την ενότητα)" : "(ΜΗΝ γράψεις ενότητα «Τάσεις»: δεν υπάρχουν αρκετές αναρτήσεις.)"}
+- Στην εισαγωγή μην γράφεις γενικόλογες φράσεις· πες απλά πόσα γραφεία μοιράστηκαν τι.
 Μην προσθέσεις υπογραφή ή σημείωση στο τέλος.`,
           `Αναρτήσεις του μήνα (JSON):\n${JSON.stringify(data)}`,
         );
         content = content.replace(/^```[a-z]*\n?|```$/g, "").trim();
+        if (!allowTrends) { const at = content.indexOf("## Τάσεις"); if (at > 0) content = content.slice(0, at).trim(); }
       }
       if (isCurrent) {
         const web = await publicOpportunities(`${MONTHS_NOM[m - 1]} ${y}`);

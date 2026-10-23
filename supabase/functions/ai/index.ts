@@ -33,7 +33,7 @@ async function callMistral(system: string, prompt: string, json: boolean): Promi
   const groq = !Deno.env.get("MISTRAL_API_KEY") && !!Deno.env.get("GROQ_API_KEY");
   const key = (groq ? Deno.env.get("GROQ_API_KEY")! : Deno.env.get("MISTRAL_API_KEY")!).trim().replace(/^["']|["']$/g, "");
   console.log(`[ai] κλειδί ${groq ? "Groq" : "Mistral"}: ${key.slice(0, 4)}… (${key.length} χαρακτήρες)`);
-  const model = groq ? (Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile") : (Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest");
+  const model = groq ? (Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-120b") : (Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest");
   const url = groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
   console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${model}`);
   const t0 = Date.now();

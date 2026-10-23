@@ -387,9 +387,8 @@ function postCard(p, { compact = false } = {}) {
     <div class="who">${avatar(p.office_id, 'sm')}<div style="min-width:0"><b>${esc(o.name || '')}</b><small>${esc(o.city || '')} · ${fmtDate(p.created_at)}</small></div></div>
     <div><span class="kind k-${p.kind}">${KINDS[p.kind]}</span></div>
     <div data-lang="el"><h3>${esc(p.title)}</h3>${body ? `<p style="margin-top:8px">${esc(body)}</p>` : ''}</div>
-    ${p.body_en ? `<div data-lang="en" hidden lang="en"><h3>${esc(p.title_en || p.title)}</h3><p style="margin-top:8px">${esc(compact && p.body_en.length > 240 ? p.body_en.slice(0, 230).trimEnd() + '…' : p.body_en)}</p></div>` : ''}
     <div class="foot">${foot}<span style="display:flex;gap:6px">
-      ${p.body_en ? '<button class="btn sm ghost" data-lang-toggle>English</button>' : ''}
+
       ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : 'Περισσότερα'}</a>` : ''}
       ${mine || (isAdmin() && !compact) ? `<button class="btn sm ghost danger" data-del-post="${p.id}">Διαγραφή</button>` : ''}
     </span></div>
@@ -604,7 +603,7 @@ async function vBulletin() {
   const cached = S.bulCache[month];
   let body;
   if (!cached) {
-    body = `<div class="card pad loading" id="bulLoading">Συντάσσεται το δελτίο ${esc(monthGen(month))}…</div>`;
+    body = `<div class="card pad loading" id="bulLoading">Συντάσσεται το δελτίο ${esc(monthGen(month))}. Την πρώτη φορά κάθε μέρας μπορεί να πάρει έως ένα λεπτό, γιατί αναζητούνται και δημόσιες ευκαιρίες· μετά ανοίγει αμέσως.</div>`;
     setTimeout(async () => { await loadBulletin(month); if (S.view === 'deltio' && S.bulMonth === month) render(); }, 0);
   } else {
     body = `${cached.fallback ? `<div class="alert info">${esc(cached.reason || '')} Εμφανίζεται προσωρινή εκδοχή.</div>` : ''}
@@ -681,7 +680,7 @@ function vPrivacy() {
     <section class="stack" style="gap:6px"><h2>Πού αποθηκεύονται</h2>
       <p>Σε διακομιστές της υπηρεσίας Supabase στην Ευρωπαϊκή Ένωση (Ιρλανδία). Η σελίδα της εφαρμογής φιλοξενείται στο GitHub Pages, που δεν αποθηκεύει δεδομένα χρηστών.</p></section>
     <section class="stack" style="gap:6px"><h2>Τεχνητή νοημοσύνη</h2>
-      <p>Για την αυτόματη σύνταξη του Δελτίου (που περιλαμβάνει και αναζήτηση δημόσιων ευκαιριών στο διαδίκτυο), τη βελτίωση κειμένου και την αγγλική εκδοχή, το κείμενο των αναρτήσεων και το όνομα του ιδρύματος αποστέλλονται στην υπηρεσία Google Gemini. Ονόματα, email ή άλλα στοιχεία χρηστών δεν αποστέλλονται ποτέ. Στη δωρεάν έκδοση της υπηρεσίας, η Google μπορεί να χρησιμοποιεί τα κείμενα αυτά για τη βελτίωση των υπηρεσιών της. Γι' αυτό οι αναρτήσεις δεν πρέπει να περιέχουν προσωπικά δεδομένα.</p></section>
+      <p>Για την αυτόματη σύνταξη του Δελτίου (που περιλαμβάνει και αναζήτηση δημόσιων ευκαιριών στο διαδίκτυο) και για τη βελτίωση κειμένου, το κείμενο των αναρτήσεων και το όνομα του ιδρύματος αποστέλλονται στην υπηρεσία τεχνητής νοημοσύνης Groq. Ονόματα, email ή άλλα στοιχεία χρηστών δεν αποστέλλονται ποτέ. Η υπηρεσία βρίσκεται εκτός ΕΕ, γι' αυτό οι αναρτήσεις δεν πρέπει να περιέχουν προσωπικά δεδομένα.</p></section>
     <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
       <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
     <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
@@ -786,8 +785,7 @@ function newPostDialog(kind = 'drasi') {
       <div class="field"><label for="p_title">Τίτλος</label><input class="input" id="p_title" required minlength="3" maxlength="200"></div>
       <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000" placeholder="Γράψτε ελεύθερα, και πατήστε «Βελτίωση κειμένου» αν θέλετε."></textarea>
         <span class="hint">Μη γράφετε προσωπικά δεδομένα φοιτητών ή εργοδοτών.</span></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου</button><button type="button" class="btn sm" id="aiTranslate">Αγγλική εκδοχή</button></div>
-      <div class="field" id="enWrap" hidden><label for="p_body_en">Κείμενο στα αγγλικά (προαιρετικό)</label><input class="input" id="p_title_en" placeholder="Title" maxlength="200" lang="en"><textarea id="p_body_en" maxlength="4000" lang="en"></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου</button></div>
       <div id="p_extra"></div>
       <div class="acts"><button type="button" class="btn" data-close>Άκυρο</button><button class="btn primary">Δημοσίευση</button></div>
     </form>`, close => {
@@ -811,22 +809,12 @@ function newPostDialog(kind = 'drasi') {
       catch (err) { toast(errMsg(err)); }
       busy(btn, false, 'Βελτίωση κειμένου');
     });
-    $('#aiTranslate').addEventListener('click', async ev => {
-      const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
-      if (!body && !title) { toast('Γράψτε πρώτα την ανάρτηση στα ελληνικά.'); return; }
-      busy(btn, true);
-      try { const r = await api.ai('translate', { title, body }); $('#enWrap').hidden = false; $('#p_title_en').value = r.title; $('#p_body_en').value = r.body; toast('Η αγγλική εκδοχή είναι έτοιμη.'); }
-      catch (err) { toast(errMsg(err)); }
-      busy(btn, false, 'Αγγλική εκδοχή');
-    });
     $('#postForm').addEventListener('submit', async e => {
       e.preventDefault();
       const k = $('#p_kind').value;
       const row = { kind: k, title: $('#p_title').value.trim(), body: $('#p_body').value.trim(), link: $('#p_link')?.value.trim() || '' };
       if (k === 'seminario') { row.event_date = $('#p_date').value; row.event_time = $('#p_time').value; }
       if (k === 'eykairia') row.source = $('#p_source').value.trim();
-      const en = $('#p_body_en').value.trim();
-      if (en) { row.body_en = en; row.title_en = $('#p_title_en').value.trim(); }
       const btn = e.submitter; if (btn) btn.disabled = true;
       try { await api.createPost(row); await refreshPosts(); S.bulCache = {}; close(); toast('Δημοσιεύτηκε'); go('anartiseis', { kind: k, region: '' }); }
       catch (err) { toast(errMsg(err)); if (btn) btn.disabled = false; }

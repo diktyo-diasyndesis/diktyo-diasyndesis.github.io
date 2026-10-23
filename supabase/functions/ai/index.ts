@@ -207,6 +207,7 @@ Deno.serve(async (req) => {
       const fresh = !isCurrent || (existing?.generated_at && Date.now() - new Date(existing.generated_at).getTime() < 864e5);
       if (existing && existing.source_sig === sig && existing.ai && fresh) return json({ bulletin: existing });
 
+      const webP = isCurrent ? publicOpportunities(`${MONTHS_NOM[m - 1]} ${y}`) : Promise.resolve("");
       let content: string;
       if (!items.length) {
         content = `# Ο μήνας στα Γραφεία Διασύνδεσης\n**${MONTHS_NOM[m - 1]} ${y}**\n\nΤον ${MONTHS_ACC[m - 1]} δεν υπήρξαν ακόμη αναρτήσεις των γραφείων στο Δίκτυο.`;
@@ -246,7 +247,7 @@ ${allowTrends ? "## Τάσεις του Δικτύου   (2-3 προτάσεις
         if (!allowTrends) { const at = content.indexOf("## Τάσεις"); if (at > 0) content = content.slice(0, at).trim(); }
       }
       if (isCurrent) {
-        const web = await publicOpportunities(`${MONTHS_NOM[m - 1]} ${y}`);
+        const web = await webP;
         if (web) {
           const at = content.indexOf("## Τάσεις του Δικτύου");
           content = at > 0 ? `${content.slice(0, at)}${web}\n\n${content.slice(at)}` : `${content}\n\n${web}`;

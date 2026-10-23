@@ -187,26 +187,27 @@ const api = {
     must(await sb.from('messages').insert({ thread_id, office_id, body }));
   },
 
-  async bulletins() {
-    if (DEMO) return clone(mock.bulletins).sort((a, b) => b.month.localeCompare(a.month));
-    return must(await sb.from('bulletins').select('*').order('month', { ascending: false }));
-  },
-  async saveBulletin(b) {
+  async ai(action, payload = {}) {
     if (DEMO) {
-      if (b.id) { Object.assign(mock.bulletins.find(x => x.id === b.id), b); return b.id; }
-      const nb = { id: mock.nextId(), status: 'draft', created_at: new Date().toISOString(), ...b }; mock.bulletins.push(nb); return nb.id;
+      await new Promise(r => setTimeout(r, 700));
+      if (action === 'bulletin') return { bulletin: { month: payload.month, content: composeBulletin(payload.month, true), ai: false, generated_at: new Date().toISOString() } };
+      if (action === 'improve') return { text: `Το Γραφείο Διασύνδεσης του ${officeName(myOffice())} ενημερώνει: ${payload.body}`.trim() };
+      if (action === 'translate') return { title: '[EN] ' + payload.title, body: '[EN] ' + payload.body };
     }
-    if (b.id) { must(await sb.from('bulletins').update({ month: b.month, content: b.content }).eq('id', b.id)); return b.id; }
-    return must(await sb.from('bulletins').insert({ month: b.month, content: b.content }).select().single()).id;
-  },
-  async approveBulletin(id) {
-    const fields = { status: 'approved', approved_by: S.me.profile.id, approved_at: new Date().toISOString() };
-    if (DEMO) { Object.assign(mock.bulletins.find(x => x.id === id), fields); return; }
-    must(await sb.from('bulletins').update(fields).eq('id', id));
-  },
-  async deleteBulletin(id) {
-    if (DEMO) { mock.bulletins = mock.bulletins.filter(x => x.id !== id); return; }
-    must(await sb.from('bulletins').delete().eq('id', id));
+    const { data, error } = await sb.functions.invoke('ai', { body: { action, ...payload } });
+    if (error) {
+      let code = '';
+      try { code = (await error.context?.json())?.error || ''; } catch (_) {}
+      const msgs = {
+        NO_AI_KEY: 'Η τεχνητή νοημοσύνη δεν έχει ενεργοποιηθεί ακόμη.',
+        AI_BUSY: 'Η υπηρεσία AI είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
+        AI_FAILED: 'Η υπηρεσία AI δεν απάντησε. Δοκιμάστε ξανά αργότερα.'
+      };
+      const err = new Error(msgs[code] || 'Η υπηρεσία AI δεν είναι διαθέσιμη αυτή τη στιγμή.');
+      err.code = code || 'UNAVAILABLE';
+      throw err;
+    }
+    return data;
   },
 
   async profiles() {
@@ -253,7 +254,7 @@ async function prepareLogo(file) {
 const S = {
   me: null, offices: [], O: {}, posts: [], view: 'arxiki',
   kind: 'all', region: '', q: '', officeId: null, threadId: null,
-  bulletinId: null, editing: null, adminTab: 'pending'
+  bulMonth: null, bulCache: {}, adminTab: 'pending'
 };
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -378,9 +379,10 @@ function postCard(p, { compact = false } = {}) {
   return `<article class="card post k-${p.kind}">
     <div class="who">${avatar(p.office_id, 'sm')}<div style="min-width:0"><b>${esc(o.name || '')}</b><small>${esc(o.city || '')} · ${fmtDate(p.created_at)}</small></div></div>
     <div><span class="kind k-${p.kind}">${KINDS[p.kind]}</span></div>
-    <h3>${esc(p.title)}</h3>
-    ${body ? `<p>${esc(body)}</p>` : ''}
+    <div data-lang="el"><h3>${esc(p.title)}</h3>${body ? `<p style="margin-top:8px">${esc(body)}</p>` : ''}</div>
+    ${p.body_en ? `<div data-lang="en" hidden lang="en"><h3>${esc(p.title_en || p.title)}</h3><p style="margin-top:8px">${esc(compact && p.body_en.length > 240 ? p.body_en.slice(0, 230).trimEnd() + '…' : p.body_en)}</p></div>` : ''}
     <div class="foot">${foot}<span style="display:flex;gap:6px">
+      ${p.body_en ? '<button class="btn sm ghost" data-lang-toggle>English</button>' : ''}
       ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : 'Περισσότερα'}</a>` : ''}
       ${mine || (isAdmin() && !compact) ? `<button class="btn sm ghost danger" data-del-post="${p.id}">Διαγραφή</button>` : ''}
     </span></div>
@@ -428,7 +430,7 @@ function vHome() {
       <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενα σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
         ${sems.slice(0, 4).map(semRow).join('') || '<p class="small muted" style="padding:10px 0">Δεν έχουν ανακοινωθεί ανοιχτά σεμινάρια.</p>'}</div>
       <div class="card pad teaser stack" style="gap:8px"><div class="eyebrow">Αυτόματη σύνοψη</div><h3>Δελτίο του Δικτύου</h3>
-        <p class="small">Κάθε μήνα συντάσσεται αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων. Ένα στέλεχος την ελέγχει και την εγκρίνει πριν δημοσιευτεί.</p>
+        <p class="small">Κάθε μήνα η τεχνητή νοημοσύνη συντάσσει αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων, ισότιμα για όλα τα ιδρύματα.</p>
         <div><button class="btn warm sm" data-go="deltio">Άνοιγμα δελτίου</button></div></div>
     </aside>
   </div>
@@ -523,7 +525,7 @@ async function vThreads() {
 }
 
 /* ---------- Δελτίο ---------- */
-function composeBulletin(ym) {
+function composeBulletin(ym, demoAi = false) {
   const [y, m] = ym.split('-').map(Number);
   const start = new Date(Date.UTC(y, m - 1, 1)).toISOString();
   const end = new Date(Date.UTC(y, m, 1)).toISOString();
@@ -549,57 +551,65 @@ function composeBulletin(ym) {
   if (dr.length) { lines.push('', '## Δράσεις των γραφείων'); dr.forEach(p => lines.push(`- **${officeShort(p.office_id)}:** ${p.title}. ${firstSentence(p.body)}`.trim())); }
   if (se.length) { lines.push('', '## Ανοιχτά σεμινάρια για όλους τους φοιτητές'); se.forEach(p => { const { d, m: mm } = fmtDay(p.event_date); lines.push(`- **${d} ${mm}${p.event_time ? ', ' + p.event_time : ''} · ${officeShort(p.office_id)}:** ${p.title}`); }); }
   if (ey.length) { lines.push('', '## Δημόσιες ευκαιρίες'); ey.forEach(p => lines.push(`- **${p.title}** (ανάρτηση ${officeShort(p.office_id)})`)); }
+  if (demoAi && offices.size) lines.push('', '## Τάσεις του Δικτύου', 'Στην προεπισκόπηση εδώ εμφανίζονται 2-3 προτάσεις από το AI για τα κοινά θέματα που απασχολούν τα γραφεία, χωρίς συγκρίσεις μεταξύ ιδρυμάτων.');
   lines.push('', 'Το δελτίο συντάχθηκε αυτόματα αποκλειστικά από δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου.');
   return lines.join('\n');
 }
 
-function paper(b) {
+const curMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
+function bulletinMonths() {
+  const months = new Set([curMonth()]);
+  S.posts.forEach(p => months.add(p.created_at.slice(0, 7)));
+  return [...months].filter(m => m <= curMonth()).sort().reverse().slice(0, 12);
+}
+
+function paper(b, { live, fallback }) {
+  const when = b.generated_at ? `${fmtDate(b.generated_at)}, ${new Date(b.generated_at).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}` : '';
   return `<article class="paper">
-    <div class="mast"><div class="eyebrow">Δελτίο του Δικτύου</div><span class="status ${b.status}">${b.status === 'approved' ? 'Εγκρίθηκε' : 'Πρόχειρο'}</span></div>
+    <div class="mast"><div class="eyebrow">Δελτίο του Δικτύου</div>
+      <span class="status ${fallback ? 'draft' : 'approved'}">${fallback ? 'Προσωρινή εκδοχή' : live ? 'Ενημερώνεται αυτόματα' : 'Ολοκληρωμένο'}</span></div>
     ${renderMarkup(b.content)}
-    <div class="sig">${b.status === 'approved' ? `Ελέγχθηκε και εγκρίθηκε ${b.approved_at ? 'στις ' + fmtDate(b.approved_at) : ''}.` : 'Αναμένει έλεγχο και έγκριση πριν δημοσιευτεί.'}</div>
+    <div class="sig">${fallback
+      ? 'Προσωρινή εκδοχή χωρίς τεχνητή νοημοσύνη, φτιαγμένη απευθείας από τις αναρτήσεις.'
+      : `Τελευταία σύνταξη: ${when}.${live ? ' Το δελτίο του τρέχοντος μήνα ξαναγράφεται αυτόματα όταν προστίθενται ή αλλάζουν αναρτήσεις.' : ''}`}</div>
   </article>`;
 }
 
+async function loadBulletin(month) {
+  try {
+    const { bulletin } = await api.ai('bulletin', { month });
+    S.bulCache[month] = { b: bulletin, fallback: false };
+  } catch (e) {
+    S.bulCache[month] = { b: { month, content: composeBulletin(month) }, fallback: true, reason: e.message };
+  }
+}
+
 async function vBulletin() {
+  const months = bulletinMonths();
+  if (!S.bulMonth || !months.includes(S.bulMonth)) S.bulMonth = months[0];
+  const month = S.bulMonth;
   const how = `<div class="how">
     <div class="card">${I.doc}<div><b>Μόνο από αναρτήσεις</b><span>Χρησιμοποιεί αποκλειστικά ό,τι έχουν ήδη δημοσιεύσει τα γραφεία.</span></div></div>
-    <div class="card">${I.shield}<div><b>Κανένα προσωπικό δεδομένο</b><span>Δεν έχει πρόσβαση σε στοιχεία φοιτητών ή εργοδοτών.</span></div></div>
-    <div class="card">${I.person}<div><b>Άνθρωπος εγκρίνει</b><span>Τίποτα δεν δημοσιεύεται χωρίς έλεγχο από διαχειριστή.</span></div></div>
+    <div class="card">${I.shield}<div><b>Κανένα προσωπικό δεδομένο</b><span>Στο AI στέλνεται μόνο το κείμενο των αναρτήσεων, ποτέ στοιχεία χρηστών.</span></div></div>
+    <div class="card">${I.person}<div><b>Κανείς δεν το επεξεργάζεται</b><span>Κανένα γραφείο δεν μπορεί να αλλάξει όσα γράφτηκαν για τα άλλα. Για διόρθωση, το γραφείο διορθώνει την ανάρτησή του.</span></div></div>
   </div>`;
-
-  if (S.editing) {
-    const e = S.editing;
-    return `
-    <div><button class="btn ghost sm" data-bul-cancel>← Πίσω στα δελτία</button></div>
-    <div class="page-head"><div><div class="eyebrow">Σύνταξη</div><h1>Δελτίο ${esc(monthGen(e.month))}</h1></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-bul-save>Αποθήκευση πρόχειρου</button><button class="btn primary" data-bul-approve>Έγκριση και δημοσίευση</button></div></div>
-    <div class="card pad" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field" style="width:200px"><label for="bulMonth">Μήνας</label><input class="input" type="month" id="bulMonth" value="${esc(e.month)}"></div>
-      <button class="btn warm" data-bul-generate>Αυτόματη σύνταξη από τις αναρτήσεις</button>
-      <span class="small muted" style="flex:1;min-width:200px">Το κείμενο μπορείτε να το διορθώσετε ελεύθερα πριν την έγκριση.</span>
-    </div>
-    <div class="editor">
-      <div class="field"><label for="bulText">Κείμενο</label><textarea id="bulText" spellcheck="true">${esc(e.content)}</textarea><span class="hint"># τίτλος · ## ενότητα · - λίστα · **έντονα**</span></div>
-      <div class="field"><label>Προεπισκόπηση</label><div id="bulPreview">${paper({ ...e, status: 'draft' })}</div></div>
-    </div>`;
+  const chips = `<div class="tabs" role="tablist">${months.map(m => `<button class="tab" role="tab" data-bul-month="${m}" aria-selected="${m === month}">${esc(monthLabel(m))}</button>`).join('')}</div>`;
+  const cached = S.bulCache[month];
+  let body;
+  if (!cached) {
+    body = `<div class="card pad loading" id="bulLoading">Το AI συντάσσει το δελτίο ${esc(monthGen(month))}…</div>`;
+    setTimeout(async () => { await loadBulletin(month); if (S.view === 'deltio' && S.bulMonth === month) render(); }, 0);
+  } else {
+    body = `${cached.fallback ? `<div class="alert info">${esc(cached.reason || '')} Εμφανίζεται προσωρινή εκδοχή.</div>` : ''}
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn sm" data-bul-copy>Αντιγραφή κειμένου</button>${cached.fallback ? '<button class="btn sm" data-bul-retry>Δοκιμή ξανά</button>' : ''}</div>
+      ${paper(cached.b, { live: month === curMonth(), fallback: cached.fallback })}`;
   }
-
-  const all = await api.bulletins();
-  if (S.bulletinId) {
-    const b = all.find(x => x.id === S.bulletinId);
-    if (b) return `
-      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><button class="btn ghost sm" data-bul-list>← Όλα τα δελτία</button>
-      <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-bul-copy="${b.id}">Αντιγραφή κειμένου</button>
-      ${isAdmin() ? `<button class="btn sm" data-bul-edit="${b.id}">Επεξεργασία</button><button class="btn sm ghost danger" data-bul-del="${b.id}">Διαγραφή</button>` : ''}</span></div>
-      ${paper(b)}`;
-  }
-  const cards = all.map(b => `<button class="card bul-item" data-bul-open="${b.id}"><span class="status ${b.status}">${b.status === 'approved' ? 'Εγκρίθηκε' : 'Πρόχειρο'}</span><h3>${esc(monthLabel(b.month))}</h3><span class="small muted">${esc((b.content.split('\n').find(l => l && !l.startsWith('#') && !l.startsWith('**')) || '').slice(0, 120))}</span></button>`).join('');
   return `
-  <div class="page-head"><div><div class="eyebrow" style="color:var(--warm-ink)">Αυτόματη σύνοψη</div><h1>Δελτίο του Δικτύου</h1><p class="lede">Μια μηνιαία εικόνα όσων κάνουν τα γραφεία διασύνδεσης της χώρας, χωρίς επιπλέον δουλειά για κανένα γραφείο.</p></div>
-  ${isAdmin() ? '<button class="btn warm" data-bul-new>Σύνταξη νέου δελτίου</button>' : ''}</div>
+  <div class="page-head"><div><div class="eyebrow" style="color:var(--warm-ink)">Με τεχνητή νοημοσύνη</div><h1>Δελτίο του Δικτύου</h1>
+    <p class="lede">Μια μηνιαία εικόνα όσων κάνουν τα γραφεία διασύνδεσης της χώρας. Συντάσσεται αυτόματα, χωρίς επιπλέον δουλειά για κανένα γραφείο.</p></div></div>
   ${how}
-  <div class="bul-list">${cards || `<div class="card empty" style="grid-column:1/-1">Δεν έχει δημοσιευτεί ακόμη δελτίο.${isAdmin() ? ' Πατήστε «Σύνταξη νέου δελτίου» για να δημιουργήσετε το πρώτο.' : ''}</div>`}</div>`;
+  ${chips}
+  ${body}`;
 }
 
 /* ---------- Λογαριασμός ---------- */
@@ -636,7 +646,7 @@ function vAccount() {
           : '<p class="small muted">Στον υπολογιστή: πατήστε το εικονίδιο εγκατάστασης στη γραμμή διευθύνσεων του Chrome ή του Edge. Στο Android: μενού ⋮ και «Προσθήκη στην αρχική οθόνη».</p>'}
       </div>
       <div class="card pad stack" style="gap:6px"><h2>Προσωπικά δεδομένα</h2><p class="small muted">Τι κρατά η εφαρμογή και ποια δικαιώματα έχετε.</p><div><button class="btn sm" data-go="aporrito">Ενημέρωση</button></div></div>
-      <div class="card pad stack" style="gap:6px"><h2>Ο ρόλος μου</h2><p class="small">${isAdmin() ? 'Διαχειριστής του Δικτύου: εγκρίνετε νέους χρήστες και δημοσιεύετε το Δελτίο.' : 'Στέλεχος γραφείου: δημοσιεύετε αναρτήσεις και ενημερώνετε τα στοιχεία του γραφείου σας.'}</p></div>
+      <div class="card pad stack" style="gap:6px"><h2>Ο ρόλος μου</h2><p class="small">${isAdmin() ? 'Διαχειριστής του Δικτύου: εγκρίνετε τους νέους χρήστες του Δικτύου.' : 'Στέλεχος γραφείου: δημοσιεύετε αναρτήσεις και ενημερώνετε τα στοιχεία του γραφείου σας.'}</p></div>
     </aside>
   </div>`;
 }
@@ -663,6 +673,8 @@ function vPrivacy() {
       <p>Μόνο εγκεκριμένα στελέχη Γραφείων Διασύνδεσης. Τα email των χρηστών τα βλέπουν μόνο οι διαχειριστές, για την έγκριση της πρόσβασης.</p></section>
     <section class="stack" style="gap:6px"><h2>Πού αποθηκεύονται</h2>
       <p>Σε διακομιστές της υπηρεσίας Supabase στην Ευρωπαϊκή Ένωση (Ιρλανδία). Η σελίδα της εφαρμογής φιλοξενείται στο GitHub Pages, που δεν αποθηκεύει δεδομένα χρηστών.</p></section>
+    <section class="stack" style="gap:6px"><h2>Τεχνητή νοημοσύνη</h2>
+      <p>Για τη σύνταξη του Δελτίου, τη βελτίωση κειμένου και την αγγλική εκδοχή, το κείμενο των αναρτήσεων και το όνομα του ιδρύματος αποστέλλονται στην υπηρεσία Google Gemini. Ονόματα, email ή άλλα στοιχεία χρηστών δεν αποστέλλονται ποτέ. Στη δωρεάν έκδοση της υπηρεσίας, η Google μπορεί να χρησιμοποιεί τα κείμενα αυτά για τη βελτίωση των υπηρεσιών της. Γι' αυτό οι αναρτήσεις δεν πρέπει να περιέχουν προσωπικά δεδομένα.</p></section>
     <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
       <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
     <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
@@ -765,7 +777,10 @@ function newPostDialog(kind = 'drasi') {
     <form class="form" id="postForm">
       <div class="field"><label for="p_kind">Είδος</label><select id="p_kind">${Object.entries(KINDS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label for="p_title">Τίτλος</label><input class="input" id="p_title" required minlength="3" maxlength="200"></div>
-      <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000"></textarea></div>
+      <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000" placeholder="Γράψτε ελεύθερα, και πατήστε «Βελτίωση κειμένου» αν θέλετε."></textarea>
+        <span class="hint">Μη γράφετε προσωπικά δεδομένα φοιτητών ή εργοδοτών.</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου με AI</button><button type="button" class="btn sm" id="aiTranslate">Αγγλική εκδοχή με AI</button></div>
+      <div class="field" id="enWrap" hidden><label for="p_body_en">Κείμενο στα αγγλικά (προαιρετικό)</label><input class="input" id="p_title_en" placeholder="Title" maxlength="200" lang="en"><textarea id="p_body_en" maxlength="4000" lang="en"></textarea></div>
       <div id="p_extra"></div>
       <div class="acts"><button type="button" class="btn" data-close>Άκυρο</button><button class="btn primary">Δημοσίευση</button></div>
     </form>`, close => {
@@ -780,14 +795,33 @@ function newPostDialog(kind = 'drasi') {
         : '';
     };
     extra(); $('#p_kind').addEventListener('change', extra);
+    const busy = (btn, on, label) => { btn.disabled = on; btn.textContent = on ? 'Το AI γράφει…' : label; };
+    $('#aiImprove').addEventListener('click', async ev => {
+      const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
+      if (!body && !title) { toast('Γράψτε πρώτα λίγες λέξεις για την ανάρτηση.'); return; }
+      busy(btn, true);
+      try { const { text } = await api.ai('improve', { kind: $('#p_kind').value, title, body }); $('#p_body').value = text; toast('Η πρόταση είναι έτοιμη. Μπορείτε να την αλλάξετε.'); }
+      catch (err) { toast(errMsg(err)); }
+      busy(btn, false, 'Βελτίωση κειμένου με AI');
+    });
+    $('#aiTranslate').addEventListener('click', async ev => {
+      const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
+      if (!body && !title) { toast('Γράψτε πρώτα την ανάρτηση στα ελληνικά.'); return; }
+      busy(btn, true);
+      try { const r = await api.ai('translate', { title, body }); $('#enWrap').hidden = false; $('#p_title_en').value = r.title; $('#p_body_en').value = r.body; toast('Η αγγλική εκδοχή είναι έτοιμη.'); }
+      catch (err) { toast(errMsg(err)); }
+      busy(btn, false, 'Αγγλική εκδοχή με AI');
+    });
     $('#postForm').addEventListener('submit', async e => {
       e.preventDefault();
       const k = $('#p_kind').value;
       const row = { kind: k, title: $('#p_title').value.trim(), body: $('#p_body').value.trim(), link: $('#p_link')?.value.trim() || '' };
       if (k === 'seminario') { row.event_date = $('#p_date').value; row.event_time = $('#p_time').value; }
       if (k === 'eykairia') row.source = $('#p_source').value.trim();
+      const en = $('#p_body_en').value.trim();
+      if (en) { row.body_en = en; row.title_en = $('#p_title_en').value.trim(); }
       const btn = e.submitter; if (btn) btn.disabled = true;
-      try { await api.createPost(row); await refreshPosts(); close(); toast('Δημοσιεύτηκε'); go('anartiseis', { kind: k, region: '' }); }
+      try { await api.createPost(row); await refreshPosts(); S.bulCache = {}; close(); toast('Δημοσιεύτηκε'); go('anartiseis', { kind: k, region: '' }); }
       catch (err) { toast(errMsg(err)); if (btn) btn.disabled = false; }
     });
   });
@@ -820,7 +854,7 @@ function confirmDialog(text, okLabel, onOk) {
 document.addEventListener('click', async e => {
   const t = e.target;
   const g = t.closest('[data-go]');
-  if (g) { e.preventDefault(); const opts = { officeId: null, editing: null, bulletinId: null }; if (g.dataset.kind) opts.kind = g.dataset.kind; if (g.dataset.go === 'syzitisi') opts.threadId = null; go(g.dataset.go, opts); return; }
+  if (g) { e.preventDefault(); const opts = { officeId: null }; if (g.dataset.kind) opts.kind = g.dataset.kind; if (g.dataset.go === 'syzitisi') opts.threadId = null; go(g.dataset.go, opts); return; }
 
   const act = t.closest('[data-act]')?.dataset.act;
   if (act === 'new-post') return newPostDialog(S.kind !== 'all' ? S.kind : 'drasi');
@@ -838,41 +872,18 @@ document.addEventListener('click', async e => {
 
   const dp = t.closest('[data-del-post]');
   if (dp) return confirmDialog('Να διαγραφεί η ανάρτηση;', 'Διαγραφή', async () => {
-    try { await api.deletePost(Number(dp.dataset.delPost)); await refreshPosts(); render(); toast('Η ανάρτηση διαγράφηκε'); } catch (err) { toast(errMsg(err)); }
+    try { await api.deletePost(Number(dp.dataset.delPost)); await refreshPosts(); S.bulCache = {}; render(); toast('Η ανάρτηση διαγράφηκε'); } catch (err) { toast(errMsg(err)); }
   });
 
+  // Αγγλικά / Ελληνικά σε κάρτα
+  const lt = t.closest('[data-lang-toggle]');
+  if (lt) { const card = lt.closest('.post'); const el = card.querySelector('[data-lang="el"]'), en = card.querySelector('[data-lang="en"]'); const toEn = en.hidden; en.hidden = !toEn; el.hidden = toEn; lt.textContent = toEn ? 'Ελληνικά' : 'English'; return; }
+
   // Δελτίο
-  if (t.closest('[data-bul-new]')) { const d = new Date(); const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; S.editing = { id: null, month: ym, content: composeBulletin(ym) }; render(); return; }
-  if (t.closest('[data-bul-cancel]')) { S.editing = null; render(); return; }
-  if (t.closest('[data-bul-list]')) { S.bulletinId = null; render(); return; }
-  const bo = t.closest('[data-bul-open]'); if (bo) { S.bulletinId = Number(bo.dataset.bulOpen); render(); return; }
-  if (t.closest('[data-bul-generate]')) {
-    const ym = $('#bulMonth').value; if (!ym) return;
-    const text = $('#bulText').value.trim();
-    const run = () => { S.editing = { ...S.editing, month: ym, content: composeBulletin(ym) }; render(); toast('Το δελτίο συντάχθηκε από τις αναρτήσεις'); };
-    if (text && text !== S.editing.content) return confirmDialog('Να αντικατασταθεί το κείμενο που έχετε γράψει;', 'Αντικατάσταση', run);
-    if (text && S.editing.id) return confirmDialog('Να ξανασυνταχθεί το δελτίο από την αρχή;', 'Νέα σύνταξη', run);
-    return run();
-  }
-  if (t.closest('[data-bul-save]') || t.closest('[data-bul-approve]')) {
-    const approve = !!t.closest('[data-bul-approve]');
-    const b = { id: S.editing.id, month: $('#bulMonth').value || S.editing.month, content: $('#bulText').value };
-    const doIt = async () => {
-      try {
-        const id = await api.saveBulletin(b);
-        if (approve) await api.approveBulletin(id);
-        S.editing = null; S.bulletinId = id; render(); toast(approve ? 'Το δελτίο εγκρίθηκε και δημοσιεύτηκε' : 'Το πρόχειρο αποθηκεύτηκε');
-      } catch (err) { toast(errMsg(err)); }
-    };
-    return approve ? confirmDialog('Να εγκριθεί το δελτίο; Θα το βλέπουν όλα τα γραφεία.', 'Έγκριση', doIt) : doIt();
-  }
-  const be = t.closest('[data-bul-edit]');
-  if (be) { const b = (await api.bulletins()).find(x => x.id === Number(be.dataset.bulEdit)); if (b) { S.editing = { id: b.id, month: b.month, content: b.content }; S.bulletinId = null; render(); } return; }
-  const bd = t.closest('[data-bul-del]');
-  if (bd) return confirmDialog('Να διαγραφεί το δελτίο;', 'Διαγραφή', async () => { try { await api.deleteBulletin(Number(bd.dataset.bulDel)); S.bulletinId = null; render(); toast('Το δελτίο διαγράφηκε'); } catch (err) { toast(errMsg(err)); } });
-  const bc = t.closest('[data-bul-copy]');
-  if (bc) {
-    const b = (await api.bulletins()).find(x => x.id === Number(bc.dataset.bulCopy));
+  const bm = t.closest('[data-bul-month]'); if (bm) { S.bulMonth = bm.dataset.bulMonth; render(); return; }
+  if (t.closest('[data-bul-retry]')) { delete S.bulCache[S.bulMonth]; render(); return; }
+  if (t.closest('[data-bul-copy]')) {
+    const b = S.bulCache[S.bulMonth]?.b; if (!b) return;
     const plain = b.content.replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#+ /gm, '').replace(/^- /gm, '• ');
     try { await navigator.clipboard.writeText(plain); toast('Το κείμενο αντιγράφηκε'); }
     catch (_) { dialog(`<h2>Αντιγραφή κειμένου</h2><textarea id="copyArea" style="min-height:300px">${esc(plain)}</textarea><div class="acts"><button class="btn" data-close>Κλείσιμο</button></div>`, () => { const a = $('#copyArea'); a.focus(); a.select(); }); }
@@ -891,10 +902,6 @@ document.addEventListener('click', async e => {
 document.addEventListener('input', e => {
   if (e.target.id === 'q') {
     const pos = e.target.selectionStart; S.q = e.target.value; render().then(() => { const n = $('#q'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } });
-  }
-  if (e.target.id === 'bulText') {
-    S.editing.content = e.target.value;
-    $('#bulPreview').innerHTML = paper({ ...S.editing, status: 'draft' });
   }
 });
 

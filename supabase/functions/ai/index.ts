@@ -28,7 +28,7 @@ const FOOTER = "Το δελτίο συντάχθηκε αυτόματα από �
 type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
 
 /* Mistral (ευρωπαϊκή υπηρεσία AI): χρησιμοποιείται αν υπάρχει το μυστικό MISTRAL_API_KEY */
-async function callMistral(system: string, prompt: string, json: boolean): Promise<GeminiOut> {
+async function callMistral(system: string, prompt: string, json: boolean, search = false): Promise<GeminiOut> {
   // Mistral (ΕΕ) ή Groq (δωρεάν, χωρίς κάρτα): ίδια μορφή αιτήματος
   const groq = !Deno.env.get("MISTRAL_API_KEY") && !!Deno.env.get("GROQ_API_KEY");
   const key = (groq ? Deno.env.get("GROQ_API_KEY")! : Deno.env.get("MISTRAL_API_KEY")!).trim().replace(/^["']|["']$/g, "");
@@ -40,24 +40,36 @@ async function callMistral(system: string, prompt: string, json: boolean): Promi
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(search ? 75000 : 45000),
     body: JSON.stringify({
-      model, temperature: 0.4,
+      model, temperature: search ? 0.3 : 0.4,
       messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
       ...(json ? { response_format: { type: "json_object" } } : {}),
+      ...(search ? { tools: [{ type: "browser_search" }], tool_choice: "required", reasoning_effort: "low", max_completion_tokens: 3000 } : {}),
     }),
   });
   console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${res.status} σε ${Date.now() - t0}ms`);
   if (res.status === 429) throw new Error("AI_BUSY");
   if (!res.ok) { console.error(`${groq ? "Groq" : "Mistral"} error:`, res.status, await res.text()); throw new Error("AI_FAILED"); }
   const data = await res.json();
-  const text = String(data?.choices?.[0]?.message?.content || "").trim();
+  const msg = data?.choices?.[0]?.message || {};
+  const text = String(msg.content || "").replace(/【[^】]*】/g, "").trim();
   if (!text) throw new Error("AI_FAILED");
-  return { text, sources: [] };
+  // Πηγές από την αναζήτηση (όπου υπάρχουν)
+  const sources: { title: string; uri: string }[] = [];
+  const walk = (o: unknown) => {
+    if (!o || typeof o !== "object") return;
+    const r = o as Record<string, unknown>;
+    if (typeof r.url === "string" && /^https:\/\//.test(r.url)) sources.push({ title: String(r.title || ""), uri: r.url });
+    Object.values(r).forEach(walk);
+  };
+  if (search) walk(msg.executed_tools);
+  return { text, sources };
 }
 
 async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
-  if ((Deno.env.get("MISTRAL_API_KEY") || Deno.env.get("GROQ_API_KEY")) && !opts.search) return callMistral(system, prompt, !!opts.json);
+  if (Deno.env.get("GROQ_API_KEY") && !Deno.env.get("MISTRAL_API_KEY")) return callMistral(system, prompt, !!opts.json, !!opts.search);
+  if (Deno.env.get("MISTRAL_API_KEY") && !opts.search) return callMistral(system, prompt, !!opts.json);
   const key = Deno.env.get("GEMINI_API_KEY")?.trim();
   if (!key) { console.error("[ai] λείπει το GEMINI_API_KEY"); throw new Error("NO_AI_KEY"); }
   console.log(`[ai] κλειδί: ${key.slice(0, 3)}… (${key.length} χαρακτήρες)`);
@@ -114,15 +126,16 @@ async function publicOpportunities(monthLabel: string): Promise<string> {
     const out = await callGemini(
       `Βρίσκεις στο διαδίκτυο ΤΡΕΧΟΥΣΕΣ δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους ελληνικών πανεπιστημίων: προγράμματα της ΔΥΠΑ, εθνικούς ή ευρωπαϊκούς διαγωνισμούς, υποτροφίες, προγράμματα πρακτικής ή απασχόλησης δημόσιων φορέων και ευρωπαϊκών θεσμών.
 ΚΑΝΟΝΕΣ: μόνο από επίσημες δημόσιες πηγές (υπουργεία, ΔΥΠΑ, ΕΕ, δημόσιοι οργανισμοί). Όχι αγγελίες ιδιωτικών εταιρειών. Όχι ειδήσεις για συγκεκριμένα πανεπιστήμια. Αν δεν είσαι βέβαιος για κάτι ή έχει λήξει, μην το γράψεις.
-Μορφή: 3 έως 5 γραμμές λίστας, καθεμία "- **Τίτλος** (Φορέας): μία πρόταση περιγραφή, και προθεσμία αν αναφέρεται." Τίποτε άλλο, χωρίς εισαγωγή.`,
+Μορφή: 3 έως 5 γραμμές λίστας, καθεμία "- **Τίτλος** (Φορέας): μία πρόταση περιγραφή, και προθεσμία αν αναφέρεται. [Επίσημη σελίδα](https://...)". Ο σύνδεσμος να είναι ακριβώς η διεύθυνση της επίσημης σελίδας που διάβασες· αν δεν την έχεις, παράλειψε τον σύνδεσμο. Γράφεις στα ελληνικά. Τίποτε άλλο, χωρίς εισαγωγή.`,
       `Ποιες είναι οι σημαντικότερες ενεργές δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους στην Ελλάδα για τον μήνα ${monthLabel};`,
       { search: true },
     );
     const items = out.text.split("\n").filter((l) => l.trim().startsWith("- ")).slice(0, 5);
     if (!items.length) return "";
     const seen = new Set<string>();
-    const src = out.sources.filter((x) => (seen.has(x.title) ? false : (seen.add(x.title), true))).slice(0, 6)
-      .map((x) => `[${(x.title || "πηγή").replace(/[\[\]]/g, "")}](${x.uri})`);
+    const label = (x: { title: string; uri: string }) => (x.title || new URL(x.uri).hostname.replace(/^www\./, "")).replace(/[\[\]]/g, "").slice(0, 60);
+    const src = out.sources.filter((x) => (seen.has(x.uri) ? false : (seen.add(x.uri), true))).slice(0, 6)
+      .map((x) => `[${label(x)}](${x.uri})`);
     return `## Ευκαιρίες από δημόσιες πηγές\n${items.join("\n")}${src.length ? `\n\nΠηγές: ${src.join(" · ")}` : ""}\n\nΓια όρους και προθεσμίες ισχύει πάντα η επίσημη ανακοίνωση του φορέα.`;
   } catch (e) {
     console.error("opportunities:", e instanceof Error ? e.message : e);

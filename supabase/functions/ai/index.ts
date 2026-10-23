@@ -45,7 +45,7 @@ async function callMistral(system: string, prompt: string, json: boolean, search
   res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    signal: AbortSignal.timeout(search ? 75000 : 45000),
+    signal: AbortSignal.timeout(search ? 35000 : 45000),
     body: JSON.stringify({
       model: mdl, temperature: search ? 0.3 : 0.4,
       messages: [{ role: "system", content: system }, { role: "user", content: prompt }],

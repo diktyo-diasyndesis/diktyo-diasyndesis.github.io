@@ -196,14 +196,14 @@ const api = {
     }
     const { data, error } = await sb.functions.invoke('ai', { body: { action, ...payload } });
     if (error) {
-      let code = '';
-      try { code = (await error.context?.json())?.error || ''; } catch (_) {}
+      let code = '', status = error.context?.status || '';
+      try { code = (await error.context?.clone?.().json?.())?.error || (await error.context?.json())?.error || ''; } catch (_) {}
       const msgs = {
         NO_AI_KEY: 'Η τεχνητή νοημοσύνη δεν έχει ενεργοποιηθεί ακόμη.',
         AI_BUSY: 'Η υπηρεσία AI είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
         AI_FAILED: 'Η υπηρεσία AI δεν απάντησε. Δοκιμάστε ξανά αργότερα.'
       };
-      const err = new Error(msgs[code] || 'Η υπηρεσία AI δεν είναι διαθέσιμη αυτή τη στιγμή.');
+      const err = new Error(msgs[code] || `Η υπηρεσία AI δεν είναι διαθέσιμη αυτή τη στιγμή (κωδικός: ${code || status || error.name || 'δίκτυο'}).`);
       err.code = code || 'UNAVAILABLE';
       throw err;
     }

@@ -29,11 +29,16 @@ type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
 
 async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
   const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) throw new Error("NO_AI_KEY");
+  if (!key) { console.error("[ai] λείπει το GEMINI_API_KEY"); throw new Error("NO_AI_KEY"); }
+  console.log(`[ai] κλειδί: ${key.slice(0, 3)}… (${key.length} χαρακτήρες)`);
   const models = [Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest", "gemini-2.5-flash"];
   let last = "";
   for (const model of models) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    console.log(`[ai] Gemini → ${model}${opts.search ? " (με αναζήτηση)" : ""}`);
+    const t0 = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       signal: AbortSignal.timeout(opts.search ? 60000 : 40000),
@@ -44,6 +49,12 @@ async function callGemini(system: string, prompt: string, opts: { json?: boolean
         generationConfig: { temperature: 0.4, ...(opts.json ? { responseMimeType: "application/json" } : {}) },
       }),
     });
+    } catch (e) {
+      console.error(`[ai] Gemini ${model} δεν απάντησε σε ${Date.now() - t0}ms:`, e instanceof Error ? e.message : e);
+      last = "timeout";
+      continue;
+    }
+    console.log(`[ai] Gemini ${model} → ${res.status} σε ${Date.now() - t0}ms`);
     if (res.ok) {
       const data = await res.json();
       const cand = data?.candidates?.[0];
@@ -93,12 +104,15 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    console.log("[ai] έλεγχος χρήστη…");
     const { data: { user } } = await admin.auth.getUser(token);
+    console.log(`[ai] χρήστης: ${user ? "ok" : "όχι"}`);
     if (!user) return json({ error: "NOT_SIGNED_IN" }, 401);
     const { data: me } = await admin.from("profiles").select("office_id,status").eq("id", user.id).single();
     if (!me || me.status !== "approved") return json({ error: "NOT_APPROVED" }, 403);
 
     const input = await req.json();
+    console.log(`[ai] ενέργεια: ${input.action}`);
     const { data: offices } = await admin.from("offices").select("id,short,name");
     const O = Object.fromEntries((offices || []).map((o) => [o.id, o]));
 

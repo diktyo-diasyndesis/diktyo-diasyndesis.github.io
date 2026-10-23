@@ -35,20 +35,29 @@ async function callMistral(system: string, prompt: string, json: boolean, search
   console.log(`[ai] κλειδί ${groq ? "Groq" : "Mistral"}: ${key.slice(0, 4)}… (${key.length} χαρακτήρες)`);
   const model = groq ? (Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-120b") : (Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest");
   const url = groq ? "https://api.groq.com/openai/v1/chat/completions" : "https://api.mistral.ai/v1/chat/completions";
-  console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${model}`);
+  // Η αναζήτηση της Groq αποτυγχάνει πού και πού με «Parsing failed»: ξαναδοκιμάζουμε (και με μικρότερο μοντέλο)
+  const attempts = search && groq ? [model, model, "openai/gpt-oss-20b"] : [model];
+  let res: Response | null = null;
+  for (let i = 0; i < attempts.length; i++) {
+  const mdl = attempts[i];
+  console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${mdl}${search ? " (αναζήτηση, προσπάθεια " + (i + 1) + ")" : ""}`);
   const t0 = Date.now();
-  const res = await fetch(url, {
+  res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
     signal: AbortSignal.timeout(search ? 75000 : 45000),
     body: JSON.stringify({
-      model, temperature: search ? 0.3 : 0.4,
+      model: mdl, temperature: search ? 0.3 : 0.4,
       messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
       ...(json ? { response_format: { type: "json_object" } } : {}),
       ...(search ? { tools: [{ type: "browser_search" }], tool_choice: "required", reasoning_effort: "low", max_completion_tokens: 3000 } : {}),
     }),
   });
   console.log(`[ai] ${groq ? "Groq" : "Mistral"} → ${res.status} σε ${Date.now() - t0}ms`);
+  if (res.status === 400 && i < attempts.length - 1) { console.error("[ai] ξαναδοκιμή:", (await res.text()).slice(0, 200)); continue; }
+  break;
+  }
+  if (!res) throw new Error("AI_FAILED");
   if (res.status === 429) throw new Error("AI_BUSY");
   if (!res.ok) { console.error(`${groq ? "Groq" : "Mistral"} error:`, res.status, await res.text()); throw new Error("AI_FAILED"); }
   const data = await res.json();
@@ -227,6 +236,7 @@ Deno.serve(async (req) => {
           `Συντάσσεις το μηνιαίο «Δελτίο του Δικτύου» των Γραφείων Διασύνδεσης των ελληνικών ΑΕΙ. Γράφεις ζεστά, επαγγελματικά ελληνικά.
 ΚΑΝΟΝΕΣ (αυστηροί):
 - Χρησιμοποιείς ΜΟΝΟ πληροφορίες από τις αναρτήσεις που σου δίνονται. Δεν επινοείς αριθμούς, ονόματα, ημερομηνίες ή αποτελέσματα.
+- Δεν προσθέτεις προσκλήσεις, σκοπούς, οφέλη ή χαρακτηρισμούς που δεν γράφει η ανάρτηση. Κάθε στοιχείο είναι 1-2 σύντομες προτάσεις.
 - Κάθε στοιχείο αναφέρει το ίδρυμα από το οποίο προέρχεται.
 - Όλα τα ιδρύματα αντιμετωπίζονται ισότιμα: καμία σύγκριση, κατάταξη, αξιολόγηση ή «καλύτερο/περισσότερο».
 - Δεν αναφέρεις ονόματα προσώπων.

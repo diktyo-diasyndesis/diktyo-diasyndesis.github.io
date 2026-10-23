@@ -23,9 +23,11 @@ const json = (data: unknown, status = 200) =>
 const MONTHS_NOM = ["Ιανουάριος","Φεβρουάριος","Μάρτιος","Απρίλιος","Μάιος","Ιούνιος","Ιούλιος","Αύγουστος","Σεπτέμβριος","Οκτώβριος","Νοέμβριος","Δεκέμβριος"];
 const MONTHS_ACC = ["Ιανουάριο","Φεβρουάριο","Μάρτιο","Απρίλιο","Μάιο","Ιούνιο","Ιούλιο","Αύγουστο","Σεπτέμβριο","Οκτώβριο","Νοέμβριο","Δεκέμβριο"];
 const KIND = { drasi: "Δράση", seminario: "Ανοιχτό σεμινάριο", eykairia: "Δημόσια ευκαιρία" } as Record<string, string>;
-const FOOTER = "Το δελτίο συντάχθηκε αυτόματα με τεχνητή νοημοσύνη, αποκλειστικά από δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου. Κανένα γραφείο δεν επεξεργάζεται το κείμενο.";
+const FOOTER = "Το δελτίο συντάχθηκε αυτόματα από τις δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου και, για τις ευκαιρίες από δημόσιες πηγές, από αναζήτηση στο διαδίκτυο. Κανένα γραφείο δεν επεξεργάζεται το κείμενο.";
 
-async function gemini(system: string, prompt: string, asJson = false): Promise<string> {
+type GeminiOut = { text: string; sources: { title: string; uri: string }[] };
+
+async function callGemini(system: string, prompt: string, opts: { json?: boolean; search?: boolean } = {}): Promise<GeminiOut> {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("NO_AI_KEY");
   const models = [Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest", "gemini-2.5-flash"];
@@ -37,13 +39,18 @@ async function gemini(system: string, prompt: string, asJson = false): Promise<s
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, ...(asJson ? { responseMimeType: "application/json" } : {}) },
+        ...(opts.search ? { tools: [{ google_search: {} }] } : {}),
+        generationConfig: { temperature: 0.4, ...(opts.json ? { responseMimeType: "application/json" } : {}) },
       }),
     });
     if (res.ok) {
       const data = await res.json();
-      const text = (data?.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || "").join("").trim();
-      if (text) return text;
+      const cand = data?.candidates?.[0];
+      const text = (cand?.content?.parts || []).map((p: { text?: string }) => p.text || "").join("").trim();
+      const sources = (cand?.groundingMetadata?.groundingChunks || [])
+        .map((c: { web?: { title?: string; uri?: string } }) => ({ title: c.web?.title || "", uri: c.web?.uri || "" }))
+        .filter((x: { uri: string }) => /^https:\/\//.test(x.uri));
+      if (text) return { text, sources };
       last = "empty";
       continue;
     }
@@ -53,6 +60,31 @@ async function gemini(system: string, prompt: string, asJson = false): Promise<s
   }
   console.error("Gemini error:", last);
   throw new Error("AI_FAILED");
+}
+async function gemini(system: string, prompt: string, asJson = false): Promise<string> {
+  return (await callGemini(system, prompt, { json: asJson })).text;
+}
+
+/* Δημόσιες ευκαιρίες από το διαδίκτυο (μόνο για τον τρέχοντα μήνα) */
+async function publicOpportunities(monthLabel: string): Promise<string> {
+  try {
+    const out = await callGemini(
+      `Βρίσκεις στο διαδίκτυο ΤΡΕΧΟΥΣΕΣ δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους ελληνικών πανεπιστημίων: προγράμματα της ΔΥΠΑ, εθνικούς ή ευρωπαϊκούς διαγωνισμούς, υποτροφίες, προγράμματα πρακτικής ή απασχόλησης δημόσιων φορέων και ευρωπαϊκών θεσμών.
+ΚΑΝΟΝΕΣ: μόνο από επίσημες δημόσιες πηγές (υπουργεία, ΔΥΠΑ, ΕΕ, δημόσιοι οργανισμοί). Όχι αγγελίες ιδιωτικών εταιρειών. Όχι ειδήσεις για συγκεκριμένα πανεπιστήμια. Αν δεν είσαι βέβαιος για κάτι ή έχει λήξει, μην το γράψεις.
+Μορφή: 3 έως 5 γραμμές λίστας, καθεμία "- **Τίτλος** (Φορέας): μία πρόταση περιγραφή, και προθεσμία αν αναφέρεται." Τίποτε άλλο, χωρίς εισαγωγή.`,
+      `Ποιες είναι οι σημαντικότερες ενεργές δημόσιες ευκαιρίες για φοιτητές και νέους αποφοίτους στην Ελλάδα για τον μήνα ${monthLabel};`,
+      { search: true },
+    );
+    const items = out.text.split("\n").filter((l) => l.trim().startsWith("- ")).slice(0, 5);
+    if (!items.length) return "";
+    const seen = new Set<string>();
+    const src = out.sources.filter((x) => (seen.has(x.title) ? false : (seen.add(x.title), true))).slice(0, 6)
+      .map((x) => `[${(x.title || "πηγή").replace(/[\[\]]/g, "")}](${x.uri})`);
+    return `## Ευκαιρίες από δημόσιες πηγές\n${items.join("\n")}${src.length ? `\n\nΠηγές: ${src.join(" · ")}` : ""}\n\nΓια όρους και προθεσμίες ισχύει πάντα η επίσημη ανακοίνωση του φορέα.`;
+  } catch (e) {
+    console.error("opportunities:", e instanceof Error ? e.message : e);
+    return "";
+  }
 }
 
 Deno.serve(async (req) => {
@@ -109,11 +141,13 @@ Deno.serve(async (req) => {
       const sig = items.map((p) => `${p.id}:${p.created_at}:${(p.title || "").length}:${(p.body || "").length}`).join("|") || "empty";
 
       const { data: existing } = await admin.from("bulletins").select("*").eq("month", month).maybeSingle();
-      if (existing && existing.source_sig === sig && existing.ai) return json({ bulletin: existing });
+      const isCurrent = y === now.getUTCFullYear() && m === now.getUTCMonth() + 1;
+      const fresh = !isCurrent || (existing?.generated_at && Date.now() - new Date(existing.generated_at).getTime() < 7 * 864e5);
+      if (existing && existing.source_sig === sig && existing.ai && fresh) return json({ bulletin: existing });
 
       let content: string;
       if (!items.length) {
-        content = `# Ο μήνας στα Γραφεία Διασύνδεσης\n**${MONTHS_NOM[m - 1]} ${y}**\n\nΤον ${MONTHS_ACC[m - 1]} δεν υπήρξαν αναρτήσεις στο Δίκτυο.\n\n${FOOTER}`;
+        content = `# Ο μήνας στα Γραφεία Διασύνδεσης\n**${MONTHS_NOM[m - 1]} ${y}**\n\nΤον ${MONTHS_ACC[m - 1]} δεν υπήρξαν ακόμη αναρτήσεις των γραφείων στο Δίκτυο.`;
       } else {
         const data = items.map((p) => ({
           ίδρυμα: O[p.office_id]?.name || p.office_id,
@@ -143,8 +177,16 @@ Deno.serve(async (req) => {
 Μην προσθέσεις υπογραφή ή σημείωση στο τέλος.`,
           `Αναρτήσεις του μήνα (JSON):\n${JSON.stringify(data)}`,
         );
-        content = content.replace(/^```[a-z]*\n?|```$/g, "").trim() + `\n\n${FOOTER}`;
+        content = content.replace(/^```[a-z]*\n?|```$/g, "").trim();
       }
+      if (isCurrent) {
+        const web = await publicOpportunities(`${MONTHS_NOM[m - 1]} ${y}`);
+        if (web) {
+          const at = content.indexOf("## Τάσεις του Δικτύου");
+          content = at > 0 ? `${content.slice(0, at)}${web}\n\n${content.slice(at)}` : `${content}\n\n${web}`;
+        }
+      }
+      content += `\n\n${FOOTER}`;
 
       const row = { month, content, status: "approved", ai: true, source_sig: sig, generated_at: new Date().toISOString() };
       const { data: saved, error } = await admin.from("bulletins").upsert(row, { onConflict: "month" }).select().single();

@@ -199,11 +199,11 @@ const api = {
       let code = '', status = error.context?.status || '';
       try { code = (await error.context?.clone?.().json?.())?.error || (await error.context?.json())?.error || ''; } catch (_) {}
       const msgs = {
-        NO_AI_KEY: 'Η τεχνητή νοημοσύνη δεν έχει ενεργοποιηθεί ακόμη.',
-        AI_BUSY: 'Η υπηρεσία AI είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
-        AI_FAILED: 'Η υπηρεσία AI δεν απάντησε. Δοκιμάστε ξανά αργότερα.'
+        NO_AI_KEY: 'Η αυτόματη σύνταξη δεν έχει ενεργοποιηθεί ακόμη.',
+        AI_BUSY: 'Η υπηρεσία είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
+        AI_FAILED: 'Η υπηρεσία δεν απάντησε. Δοκιμάστε ξανά αργότερα.'
       };
-      const err = new Error(msgs[code] || `Η υπηρεσία AI δεν είναι διαθέσιμη αυτή τη στιγμή (κωδικός: ${code || status || error.name || 'δίκτυο'}).`);
+      const err = new Error(msgs[code] || `Η αυτόματη σύνταξη δεν είναι διαθέσιμη αυτή τη στιγμή (κωδικός: ${code || status || error.name || 'δίκτυο'}).`);
       err.code = code || 'UNAVAILABLE';
       throw err;
     }
@@ -301,7 +301,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#layer').
 
 /* Απλή μορφοποίηση δελτίου: # ## - **έντονα** */
 function renderMarkup(text) {
-  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  const inline = s => esc(s).replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   const out = []; let list = false;
   for (const raw of text.split('\n')) {
     const line = raw.trimEnd();
@@ -430,7 +430,7 @@ function vHome() {
       <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενα σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
         ${sems.slice(0, 4).map(semRow).join('') || '<p class="small muted" style="padding:10px 0">Δεν έχουν ανακοινωθεί ανοιχτά σεμινάρια.</p>'}</div>
       <div class="card pad teaser stack" style="gap:8px"><div class="eyebrow">Αυτόματη σύνοψη</div><h3>Δελτίο του Δικτύου</h3>
-        <p class="small">Κάθε μήνα η τεχνητή νοημοσύνη συντάσσει αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων, ισότιμα για όλα τα ιδρύματα.</p>
+        <p class="small">Κάθε μήνα συντάσσεται αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων, μαζί με δημόσιες ευκαιρίες για φοιτητές.</p>
         <div><button class="btn warm sm" data-go="deltio">Άνοιγμα δελτίου</button></div></div>
     </aside>
   </div>
@@ -551,7 +551,7 @@ function composeBulletin(ym, demoAi = false) {
   if (dr.length) { lines.push('', '## Δράσεις των γραφείων'); dr.forEach(p => lines.push(`- **${officeShort(p.office_id)}:** ${p.title}. ${firstSentence(p.body)}`.trim())); }
   if (se.length) { lines.push('', '## Ανοιχτά σεμινάρια για όλους τους φοιτητές'); se.forEach(p => { const { d, m: mm } = fmtDay(p.event_date); lines.push(`- **${d} ${mm}${p.event_time ? ', ' + p.event_time : ''} · ${officeShort(p.office_id)}:** ${p.title}`); }); }
   if (ey.length) { lines.push('', '## Δημόσιες ευκαιρίες'); ey.forEach(p => lines.push(`- **${p.title}** (ανάρτηση ${officeShort(p.office_id)})`)); }
-  if (demoAi && offices.size) lines.push('', '## Τάσεις του Δικτύου', 'Στην προεπισκόπηση εδώ εμφανίζονται 2-3 προτάσεις από το AI για τα κοινά θέματα που απασχολούν τα γραφεία, χωρίς συγκρίσεις μεταξύ ιδρυμάτων.');
+  if (demoAi && offices.size) lines.push('', '## Τάσεις του Δικτύου', 'Στην προεπισκόπηση εδώ εμφανίζονται 2-3 προτάσεις για τα κοινά θέματα που απασχολούν τα γραφεία, χωρίς συγκρίσεις μεταξύ ιδρυμάτων.');
   lines.push('', 'Το δελτίο συντάχθηκε αυτόματα αποκλειστικά από δημοσιευμένες αναρτήσεις των γραφείων του Δικτύου.');
   return lines.join('\n');
 }
@@ -570,7 +570,7 @@ function paper(b, { live, fallback }) {
       <span class="status ${fallback ? 'draft' : 'approved'}">${fallback ? 'Προσωρινή εκδοχή' : live ? 'Ενημερώνεται αυτόματα' : 'Ολοκληρωμένο'}</span></div>
     ${renderMarkup(b.content)}
     <div class="sig">${fallback
-      ? 'Προσωρινή εκδοχή χωρίς τεχνητή νοημοσύνη, φτιαγμένη απευθείας από τις αναρτήσεις.'
+      ? 'Προσωρινή εκδοχή, φτιαγμένη απευθείας από τις αναρτήσεις.'
       : `Τελευταία σύνταξη: ${when}.${live ? ' Το δελτίο του τρέχοντος μήνα ξαναγράφεται αυτόματα όταν προστίθενται ή αλλάζουν αναρτήσεις.' : ''}`}</div>
   </article>`;
 }
@@ -590,14 +590,14 @@ async function vBulletin() {
   const month = S.bulMonth;
   const how = `<div class="how">
     <div class="card">${I.doc}<div><b>Μόνο από αναρτήσεις</b><span>Χρησιμοποιεί αποκλειστικά ό,τι έχουν ήδη δημοσιεύσει τα γραφεία.</span></div></div>
-    <div class="card">${I.shield}<div><b>Κανένα προσωπικό δεδομένο</b><span>Στο AI στέλνεται μόνο το κείμενο των αναρτήσεων, ποτέ στοιχεία χρηστών.</span></div></div>
+    <div class="card">${I.shield}<div><b>Κανένα προσωπικό δεδομένο</b><span>Χρησιμοποιείται μόνο το κείμενο των αναρτήσεων, ποτέ στοιχεία χρηστών.</span></div></div>
     <div class="card">${I.person}<div><b>Κανείς δεν το επεξεργάζεται</b><span>Κανένα γραφείο δεν μπορεί να αλλάξει όσα γράφτηκαν για τα άλλα. Για διόρθωση, το γραφείο διορθώνει την ανάρτησή του.</span></div></div>
   </div>`;
   const chips = `<div class="tabs" role="tablist">${months.map(m => `<button class="tab" role="tab" data-bul-month="${m}" aria-selected="${m === month}">${esc(monthLabel(m))}</button>`).join('')}</div>`;
   const cached = S.bulCache[month];
   let body;
   if (!cached) {
-    body = `<div class="card pad loading" id="bulLoading">Το AI συντάσσει το δελτίο ${esc(monthGen(month))}…</div>`;
+    body = `<div class="card pad loading" id="bulLoading">Συντάσσεται το δελτίο ${esc(monthGen(month))}…</div>`;
     setTimeout(async () => { await loadBulletin(month); if (S.view === 'deltio' && S.bulMonth === month) render(); }, 0);
   } else {
     body = `${cached.fallback ? `<div class="alert info">${esc(cached.reason || '')} Εμφανίζεται προσωρινή εκδοχή.</div>` : ''}
@@ -605,8 +605,8 @@ async function vBulletin() {
       ${paper(cached.b, { live: month === curMonth(), fallback: cached.fallback })}`;
   }
   return `
-  <div class="page-head"><div><div class="eyebrow" style="color:var(--warm-ink)">Με τεχνητή νοημοσύνη</div><h1>Δελτίο του Δικτύου</h1>
-    <p class="lede">Μια μηνιαία εικόνα όσων κάνουν τα γραφεία διασύνδεσης της χώρας. Συντάσσεται αυτόματα, χωρίς επιπλέον δουλειά για κανένα γραφείο.</p></div></div>
+  <div class="page-head"><div><h1>Δελτίο του Δικτύου</h1>
+    <p class="lede">Μια μηνιαία εικόνα όσων κάνουν τα γραφεία διασύνδεσης της χώρας, μαζί με δημόσιες ευκαιρίες για φοιτητές. Συντάσσεται αυτόματα, χωρίς επιπλέον δουλειά για κανένα γραφείο.</p></div></div>
   ${how}
   ${chips}
   ${body}`;
@@ -674,7 +674,7 @@ function vPrivacy() {
     <section class="stack" style="gap:6px"><h2>Πού αποθηκεύονται</h2>
       <p>Σε διακομιστές της υπηρεσίας Supabase στην Ευρωπαϊκή Ένωση (Ιρλανδία). Η σελίδα της εφαρμογής φιλοξενείται στο GitHub Pages, που δεν αποθηκεύει δεδομένα χρηστών.</p></section>
     <section class="stack" style="gap:6px"><h2>Τεχνητή νοημοσύνη</h2>
-      <p>Για τη σύνταξη του Δελτίου, τη βελτίωση κειμένου και την αγγλική εκδοχή, το κείμενο των αναρτήσεων και το όνομα του ιδρύματος αποστέλλονται στην υπηρεσία Google Gemini. Ονόματα, email ή άλλα στοιχεία χρηστών δεν αποστέλλονται ποτέ. Στη δωρεάν έκδοση της υπηρεσίας, η Google μπορεί να χρησιμοποιεί τα κείμενα αυτά για τη βελτίωση των υπηρεσιών της. Γι' αυτό οι αναρτήσεις δεν πρέπει να περιέχουν προσωπικά δεδομένα.</p></section>
+      <p>Για την αυτόματη σύνταξη του Δελτίου (που περιλαμβάνει και αναζήτηση δημόσιων ευκαιριών στο διαδίκτυο), τη βελτίωση κειμένου και την αγγλική εκδοχή, το κείμενο των αναρτήσεων και το όνομα του ιδρύματος αποστέλλονται στην υπηρεσία Google Gemini. Ονόματα, email ή άλλα στοιχεία χρηστών δεν αποστέλλονται ποτέ. Στη δωρεάν έκδοση της υπηρεσίας, η Google μπορεί να χρησιμοποιεί τα κείμενα αυτά για τη βελτίωση των υπηρεσιών της. Γι' αυτό οι αναρτήσεις δεν πρέπει να περιέχουν προσωπικά δεδομένα.</p></section>
     <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
       <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
     <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
@@ -779,7 +779,7 @@ function newPostDialog(kind = 'drasi') {
       <div class="field"><label for="p_title">Τίτλος</label><input class="input" id="p_title" required minlength="3" maxlength="200"></div>
       <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000" placeholder="Γράψτε ελεύθερα, και πατήστε «Βελτίωση κειμένου» αν θέλετε."></textarea>
         <span class="hint">Μη γράφετε προσωπικά δεδομένα φοιτητών ή εργοδοτών.</span></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου με AI</button><button type="button" class="btn sm" id="aiTranslate">Αγγλική εκδοχή με AI</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου</button><button type="button" class="btn sm" id="aiTranslate">Αγγλική εκδοχή</button></div>
       <div class="field" id="enWrap" hidden><label for="p_body_en">Κείμενο στα αγγλικά (προαιρετικό)</label><input class="input" id="p_title_en" placeholder="Title" maxlength="200" lang="en"><textarea id="p_body_en" maxlength="4000" lang="en"></textarea></div>
       <div id="p_extra"></div>
       <div class="acts"><button type="button" class="btn" data-close>Άκυρο</button><button class="btn primary">Δημοσίευση</button></div>
@@ -795,14 +795,14 @@ function newPostDialog(kind = 'drasi') {
         : '';
     };
     extra(); $('#p_kind').addEventListener('change', extra);
-    const busy = (btn, on, label) => { btn.disabled = on; btn.textContent = on ? 'Το AI γράφει…' : label; };
+    const busy = (btn, on, label) => { btn.disabled = on; btn.textContent = on ? 'Γράφεται…' : label; };
     $('#aiImprove').addEventListener('click', async ev => {
       const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
       if (!body && !title) { toast('Γράψτε πρώτα λίγες λέξεις για την ανάρτηση.'); return; }
       busy(btn, true);
       try { const { text } = await api.ai('improve', { kind: $('#p_kind').value, title, body }); $('#p_body').value = text; toast('Η πρόταση είναι έτοιμη. Μπορείτε να την αλλάξετε.'); }
       catch (err) { toast(errMsg(err)); }
-      busy(btn, false, 'Βελτίωση κειμένου με AI');
+      busy(btn, false, 'Βελτίωση κειμένου');
     });
     $('#aiTranslate').addEventListener('click', async ev => {
       const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
@@ -810,7 +810,7 @@ function newPostDialog(kind = 'drasi') {
       busy(btn, true);
       try { const r = await api.ai('translate', { title, body }); $('#enWrap').hidden = false; $('#p_title_en').value = r.title; $('#p_body_en').value = r.body; toast('Η αγγλική εκδοχή είναι έτοιμη.'); }
       catch (err) { toast(errMsg(err)); }
-      busy(btn, false, 'Αγγλική εκδοχή με AI');
+      busy(btn, false, 'Αγγλική εκδοχή');
     });
     $('#postForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -884,7 +884,7 @@ document.addEventListener('click', async e => {
   if (t.closest('[data-bul-retry]')) { delete S.bulCache[S.bulMonth]; render(); return; }
   if (t.closest('[data-bul-copy]')) {
     const b = S.bulCache[S.bulMonth]?.b; if (!b) return;
-    const plain = b.content.replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#+ /gm, '').replace(/^- /gm, '• ');
+    const plain = b.content.replace(/\[([^\]]+)\]\((https:[^)]+)\)/g, '$1 ($2)').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#+ /gm, '').replace(/^- /gm, '• ');
     try { await navigator.clipboard.writeText(plain); toast('Το κείμενο αντιγράφηκε'); }
     catch (_) { dialog(`<h2>Αντιγραφή κειμένου</h2><textarea id="copyArea" style="min-height:300px">${esc(plain)}</textarea><div class="acts"><button class="btn" data-close>Κλείσιμο</button></div>`, () => { const a = $('#copyArea'); a.focus(); a.select(); }); }
     return;

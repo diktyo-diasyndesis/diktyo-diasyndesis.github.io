@@ -371,7 +371,7 @@ function shell(inner) {
   return `
   ${DEMO ? '<div class="demo-strip gut"><b>Προεπισκόπηση.</b> Ενδεικτικά δεδομένα· οι αλλαγές δεν αποθηκεύονται.</div>' : ''}
   <header class="topbar"><div class="container gut">
-    <a class="brand" href="#arxiki" data-go="arxiki"><img src="icons/icon-192.png" alt=""><span><b>Δίκτυο Γραφείων Διασύνδεσης</b><small>των ελληνικών ΑΕΙ</small></span></a>
+    <a class="brand" href="#arxiki" data-go="arxiki"><img src="icons/icon-192.png" alt=""><span><b>Δίκτυο Γραφείων Διασύνδεσης</b></span></a>
     <nav class="topnav" aria-label="Κύρια πλοήγηση">${NAV.map(([k, l]) => `<a href="#${k}" data-go="${k}" ${S.view === k ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
     <button class="me-btn" data-go="logariasmos" aria-label="Ο λογαριασμός μου">${avatar(p.office_id)}<span class="lbl">${esc(officeShort(p.office_id))}</span></button>
   </div></header>
@@ -750,7 +750,7 @@ let authTab = 'login';
 function vAuth(err = '') {
   return `<div class="auth gut"><div style="width:100%;max-width:440px">
     <div class="card auth-card">
-      <div class="auth-brand"><img src="icons/icon-192.png" alt=""><div><h2>Δίκτυο Γραφείων Διασύνδεσης</h2><div class="small muted">των ελληνικών ΑΕΙ</div></div></div>
+      <div class="auth-brand"><img src="icons/icon-192.png" alt=""><div><h2>Δίκτυο Γραφείων Διασύνδεσης</h2></div></div>
       ${DEMO ? '<div class="alert info">Προεπισκόπηση: πατήστε «Είσοδος» με οποιαδήποτε στοιχεία.</div>' : ''}
       <div class="tabs"><button class="tab" data-auth-tab="login" aria-selected="${authTab === 'login'}">Είσοδος</button><button class="tab" data-auth-tab="signup" aria-selected="${authTab === 'signup'}">Αίτηση πρόσβασης</button></div>
       ${err ? `<div class="alert">${esc(err)}</div>` : ''}

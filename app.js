@@ -419,6 +419,17 @@ function semRow(p) {
   return `<div class="sem"><div class="datebox${ev ? ' ev' : ''}"><b>${d}</b><span>${m}</span></div><div style="min-width:0"><h3 style="font-size:14.5px">${esc(p.title)}</h3><div class="small muted">${esc(officeShort(p.office_id))}${p.event_time ? ' · ' + esc(p.event_time) : ''} · ${ev ? (p.source ? esc(p.source) : 'εκδήλωση') : 'σεμινάριο ανοιχτό σε όλα τα ΑΕΙ'}</div></div></div>`;
 }
 
+function bulletinExcerpt() {
+  const m = curMonth(), c = S.bulCache[m];
+  if (!c) {
+    if (!S.bulLoading) { S.bulLoading = true; loadBulletin(m).then(() => { S.bulLoading = false; if (S.view === 'arxiki') render(); }); }
+    return 'Η σύνοψη του μήνα συντάσσεται αυτόματα από τις αναρτήσεις των Γραφείων και περιλαμβάνει δημόσιες ευκαιρίες για φοιτητές.';
+  }
+  const line = c.b.content.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('-')) || '';
+  const t = line.replace(/\*\*/g, '');
+  return t.length > 260 ? t.slice(0, 250).replace(/\s+\S*$/, '') + '…' : t;
+}
+
 function vHome() {
   const sixMonths = new Date(Date.now() - 182 * 864e5).toISOString();
   const drasis = S.posts.filter(p => p.kind === 'drasi' && p.created_at >= sixMonths).length;
@@ -450,15 +461,17 @@ function vHome() {
   </section>` : ''}
   <div class="cols">
     <section class="stack" style="gap:12px">
-      <div class="sec-head"><h2>Πρόσφατες αναρτήσεις</h2><a href="#anartiseis" data-go="anartiseis">Όλες →</a></div>
-      <div class="grid">${S.posts.slice(0, 4).map(p => postCard(p, { compact: true })).join('') || '<div class="card empty">Δεν υπάρχουν ακόμη αναρτήσεις.</div>'}</div>
+      <div class="card pad">
+        <div class="sec-head" style="margin-bottom:4px"><h2>Τελευταίες αναρτήσεις</h2><a href="#anartiseis" data-go="anartiseis">Όλες →</a></div>
+        ${S.posts.slice(0, 7).map(p => `<button class="latest" data-go="anartiseis" data-kind="${p.kind}">${avatar(p.office_id, 'sm')}<span class="latest-main"><b>${esc(p.title)}</b><span class="small muted">${esc(officeShort(p.office_id))} · ${fmtDate(p.created_at)}</span></span><span class="kind k-${p.kind}">${KINDS[p.kind] || ''}</span></button>`).join('') || '<p class="small muted" style="padding:10px 0">Δεν υπάρχουν ακόμη αναρτήσεις.</p>'}
+      </div>
     </section>
     <aside class="stack" style="gap:14px">
       <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενες εκδηλώσεις και σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
         ${sems.slice(0, 4).map(semRow).join('') || '<p class="small muted" style="padding:10px 0">Δεν έχουν ανακοινωθεί εκδηλώσεις ή σεμινάρια.</p>'}</div>
-      <div class="card pad teaser stack" style="gap:8px"><div class="eyebrow">Αυτόματη σύνοψη</div><h3>Δελτίο του Δικτύου</h3>
-        <p class="small">Κάθε μήνα συντάσσεται αυτόματα μια σύνοψη από τις αναρτήσεις όλων των γραφείων, μαζί με δημόσιες ευκαιρίες για φοιτητές.</p>
-        <div><button class="btn warm sm" data-go="deltio">Άνοιγμα δελτίου</button></div></div>
+      <div class="card pad teaser stack" style="gap:8px"><div class="eyebrow">Δελτίο του Δικτύου</div><h3>${esc(monthLabel(curMonth()))}</h3>
+        <p class="small">${esc(bulletinExcerpt())}</p>
+        <div><button class="btn warm sm" data-go="deltio">Ανάγνωση δελτίου</button></div></div>
     </aside>
   </div>
   <section class="card pad stack" style="gap:14px"><h2>Αρχές του Δικτύου</h2>

@@ -445,7 +445,7 @@ function vHome() {
   ${!S.O[p.office_id]?.feed_enabled ? `<section class="card pad autobox">
     <div class="autobox-ic">${I.posts}</div>
     <div style="min-width:0;flex:1">
-      <p style="font-size:15.5px;font-weight:500">Με τη σύνδεση της ιστοσελίδας του Γραφείου σας, οι ανακοινώσεις σας θα εμφανίζονται αυτόματα στο Δίκτυο, χωρίς να απαιτείται επιπλέον καταχώριση.</p></div>
+      <p style="font-size:15.5px;font-weight:500">Με τη σύνδεση της ιστοσελίδας του Γραφείου Διασύνδεσης, οι ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο, χωρίς να απαιτείται επιπλέον καταχώριση.</p></div>
     <button class="btn primary" data-go="logariasmos">Σύνδεση ιστοσελίδας</button>
   </section>` : ''}
   <div class="cols">
@@ -672,7 +672,7 @@ function vAccount() {
     </section>
     <aside class="stack" style="gap:14px">
       <div class="card pad stack" style="gap:10px"><h2>Αυτόματη μεταφορά ανακοινώσεων</h2>
-        <p class="small muted">Εφόσον η ιστοσελίδα του Γραφείου σας διαθέτει ροή ανακοινώσεων (RSS), οι νέες ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο. Η λειτουργία μπορεί να απενεργοποιηθεί οποιαδήποτε στιγμή.</p>
+        <p class="small muted">Εφόσον η ιστοσελίδα του Γραφείου διαθέτει ροή ανακοινώσεων (RSS), οι νέες ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο. Η λειτουργία μπορεί να απενεργοποιηθεί οποιαδήποτε στιγμή.</p>
         <div class="field"><label for="f_feed">Διεύθυνση ιστοσελίδας ή ροής RSS</label><input class="input" id="f_feed" type="url" placeholder="https://…" value="${esc(o.feed_url || '')}"></div>
         <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="f_feed_on" ${o.feed_enabled ? 'checked' : ''}> Ενεργή αυτόματη μεταφορά</label>
         <div id="feedMsg" class="small muted">${o.feed_checked_at ? 'Τελευταίος έλεγχος: ' + fmtDate(o.feed_checked_at) : ''}</div>
@@ -718,7 +718,7 @@ function vPrivacy() {
     <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
       <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
     <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
-      <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης και διαγραφής των δεδομένων σας, καθώς και δικαίωμα καταγγελίας στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα. Τα στοιχεία του Γραφείου σας μπορούν να διορθωθούν από τη σελίδα «Ο λογαριασμός μου».</p></section>
+      <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης και διαγραφής των δεδομένων σας, καθώς και δικαίωμα καταγγελίας στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα. Τα στοιχεία κάθε Γραφείου μπορούν να διορθωθούν από τη σελίδα «Ο λογαριασμός μου».</p></section>
   </article>`;
 }
 
@@ -818,7 +818,7 @@ function newPostDialog(kind = 'drasi') {
     <h2>Νέα ανάρτηση</h2>
     <p class="small muted" style="margin-top:-8px">Δημοσιεύεται ως Γραφείο Διασύνδεσης ${esc(officeShort(myOffice()))}.</p>
     <div class="card pad stack linkbox" style="gap:8px">
-      <label for="p_url" style="font-weight:650;font-size:13px">Η ανακοίνωση έχει ήδη δημοσιευθεί στην ιστοσελίδα σας;</label>
+      <label for="p_url" style="font-weight:650;font-size:13px">Η ανακοίνωση έχει ήδη δημοσιευθεί στην ιστοσελίδα του Γραφείου;</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="p_url" type="url" placeholder="Σύνδεσμος της ανακοίνωσης, π.χ. https://…" style="flex:1;min-width:200px"><button type="button" class="btn warm" id="fromLink">Συμπλήρωση</button></div>
       <span class="hint small muted">Η φόρμα συμπληρώνεται αυτόματα από τη σελίδα. Παρακαλούμε ελέγξτε τα στοιχεία πριν από τη δημοσίευση.</span>
     </div>
@@ -841,7 +841,7 @@ function newPostDialog(kind = 'drasi') {
            <div class="field"><label for="p_source">Τόπος</label><input class="input" id="p_source" placeholder="π.χ. Κοζάνη, Αμφιθέατρο Α, ή διαδικτυακά" maxlength="120"></div>
            <div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
         : k === 'yliko'
-        ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος στο υλικό</label><input class="input" type="url" id="p_link" placeholder="https://" required><span class="hint">Μόνο υλικό που είναι ήδη δημόσιο, π.χ. στην ιστοσελίδα του γραφείου σας.</span></div></div>`
+        ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος στο υλικό</label><input class="input" type="url" id="p_link" placeholder="https://" required><span class="hint">Μόνο υλικό που είναι ήδη δημόσιο, π.χ. στην ιστοσελίδα του Γραφείου.</span></div></div>`
         : ['nea', 'diakrisi'].includes(k)
         ? `<div class="form"><div class="field"><label for="p_link">Σύνδεσμος (προαιρετικό)</label><input class="input" type="url" id="p_link" placeholder="https://"></div></div>`
         : k === 'eykairia'
@@ -927,7 +927,7 @@ document.addEventListener('click', async e => {
   if (act === 'install' && installEvt) { installEvt.prompt(); installEvt = null; return; }
   if (act === 'feed-test' || act === 'feed-save') {
     const url = $('#f_feed').value.trim(), on = $('#f_feed_on').checked, msg = $('#feedMsg'), btn = t.closest('[data-act]');
-    if (!url && (act === 'feed-test' || on)) { toast('Παρακαλούμε συμπληρώστε τη διεύθυνση της ιστοσελίδας σας.'); return; }
+    if (!url && (act === 'feed-test' || on)) { toast('Παρακαλούμε συμπληρώστε τη διεύθυνση της ιστοσελίδας του Γραφείου.'); return; }
     btn.disabled = true;
     try {
       let feed = url;

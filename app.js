@@ -442,6 +442,12 @@ function vHome() {
     </div>
   </section>
   <p class="small muted" style="margin-top:-10px">Οι αριθμοί αφορούν το δίκτυο συνολικά. Δεν γίνεται σύγκριση ή κατάταξη ιδρυμάτων.</p>
+  ${!S.O[p.office_id]?.feed_enabled ? `<section class="card pad autobox">
+    <div class="autobox-ic">${I.posts}</div>
+    <div style="min-width:0;flex:1"><h2>Χωρίς επιπλέον δουλειά για το γραφείο σας</h2>
+      <p class="small" style="margin-top:4px">Συνδέστε μία φορά το site του γραφείου σας και οι ανακοινώσεις σας θα εμφανίζονται αυτόματα στο Δίκτυο. Δεν χρειάζεται να γράφετε τίποτα δεύτερη φορά.</p></div>
+    <button class="btn primary" data-go="logariasmos">Σύνδεση του site μας</button>
+  </section>` : ''}
   <div class="cols">
     <section class="stack" style="gap:12px">
       <div class="sec-head"><h2>Πρόσφατες αναρτήσεις</h2><a href="#anartiseis" data-go="anartiseis">Όλες →</a></div>

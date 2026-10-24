@@ -196,6 +196,9 @@ const api = {
       await new Promise(r => setTimeout(r, 700));
       if (action === 'bulletin') return { bulletin: { month: payload.month, content: composeBulletin(payload.month, true), ai: false, generated_at: new Date().toISOString() } };
       if (action === 'improve') return { text: `Το Γραφείο Διασύνδεσης του ${officeName(myOffice())} ενημερώνει: ${payload.body}`.trim() };
+      if (action === 'from_link') return { kind: 'ekdilosi', title: 'Ημέρα Καριέρας 2026', body: 'Το Γραφείο Διασύνδεσης διοργανώνει Ημέρα Καριέρας με τη συμμετοχή εργοδοτών από διάφορους κλάδους.', event_date: '2026-11-20', event_time: '10:00', place: 'Κοζάνη', link: payload.url };
+      if (action === 'test_feed') return { url: payload.url, count: 12, titles: ['Ημέρα Καριέρας 2026', 'Νέο πρόγραμμα πρακτικής άσκησης', 'Οδηγός σύνταξης βιογραφικού'] };
+      if (action === 'sync_feeds') return { added: 0 };
       if (action === 'translate') return { title: '[EN] ' + payload.title, body: '[EN] ' + payload.body };
     }
     let res;
@@ -212,7 +215,10 @@ const api = {
       const msgs = {
         NO_AI_KEY: 'Η αυτόματη σύνταξη δεν έχει ενεργοποιηθεί ακόμη.',
         AI_BUSY: 'Η υπηρεσία είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
-        AI_FAILED: 'Η υπηρεσία δεν απάντησε. Δοκιμάστε ξανά αργότερα.'
+        AI_FAILED: 'Η υπηρεσία δεν απάντησε. Δοκιμάστε ξανά αργότερα.',
+        BAD_URL: 'Ο σύνδεσμος δεν είναι έγκυρος. Επικολλήστε ολόκληρη τη διεύθυνση, π.χ. https://…',
+        FETCH_FAILED: 'Δεν ήταν δυνατό να ανοίξει η σελίδα. Ελέγξτε ότι ο σύνδεσμος είναι δημόσιος.',
+        NO_FEED: 'Δεν βρέθηκε ροή ανακοινώσεων (RSS) σε αυτή τη διεύθυνση.'
       };
       const err = new Error(msgs[code] || `Η αυτόματη σύνταξη δεν είναι διαθέσιμη αυτή τη στιγμή (κωδικός: ${code || status || error.name || 'δίκτυο'}).`);
       err.code = code || 'UNAVAILABLE';
@@ -394,9 +400,10 @@ function postCard(p, { compact = false } = {}) {
     <div class="who">${avatar(p.office_id, 'sm')}<div style="min-width:0"><b>${esc(o.name || '')}</b><small>${esc(o.city || '')} · ${fmtDate(p.created_at)}</small></div></div>
     <div><span class="kind k-${p.kind}">${KINDS[p.kind]}</span></div>
     <div data-lang="el"><h3>${esc(p.title)}</h3>${body ? `<p style="margin-top:8px">${esc(body)}</p>` : ''}</div>
+    ${p.auto ? '<div class="small muted">Μεταφέρθηκε αυτόματα από το site του γραφείου.</div>' : ''}
     <div class="foot">${foot}<span style="display:flex;gap:6px">
 
-      ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : p.kind === 'yliko' ? 'Άνοιγμα υλικού' : 'Περισσότερα'}</a>` : ''}
+      ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : p.kind === 'yliko' ? 'Άνοιγμα υλικού' : p.auto ? 'Πλήρης ανακοίνωση' : 'Περισσότερα'}</a>` : ''}
       ${mine || (isAdmin() && !compact) ? `<button class="btn sm ghost danger" data-del-post="${p.id}">Διαγραφή</button>` : ''}
     </span></div>
   </article>`;
@@ -658,6 +665,13 @@ function vAccount() {
       </form>
     </section>
     <aside class="stack" style="gap:14px">
+      <div class="card pad stack" style="gap:10px"><h2>Αυτόματη μεταφορά ανακοινώσεων</h2>
+        <p class="small muted">Αν το site του γραφείου σας έχει ροή ανακοινώσεων (RSS), οι νέες ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο, χωρίς επιπλέον δουλειά. Μπορείτε να το σταματήσετε όποτε θέλετε.</p>
+        <div class="field"><label for="f_feed">Διεύθυνση του site ή της ροής</label><input class="input" id="f_feed" type="url" placeholder="https://…" value="${esc(o.feed_url || '')}"></div>
+        <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="f_feed_on" ${o.feed_enabled ? 'checked' : ''}> Ενεργή αυτόματη μεταφορά</label>
+        <div id="feedMsg" class="small muted">${o.feed_checked_at ? 'Τελευταίος έλεγχος: ' + fmtDate(o.feed_checked_at) : ''}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="feed-test">Έλεγχος</button><button class="btn sm primary" data-act="feed-save">Αποθήκευση</button></div>
+      </div>
       <div class="card pad stack" style="gap:10px"><h2>Εγκατάσταση εφαρμογής</h2>
         ${standalone ? '<p class="small">Η εφαρμογή είναι ήδη εγκατεστημένη σε αυτή τη συσκευή.</p>'
           : installEvt ? '<p class="small muted">Προσθέστε το Δίκτυο στην οθόνη σας για να ανοίγει σαν κανονική εφαρμογή.</p><div><button class="btn primary" data-act="install">Εγκατάσταση</button></div>'
@@ -684,6 +698,7 @@ function vPrivacy() {
         <li>Για κάθε χρήστη: ονοματεπώνυμο, υπηρεσιακό email, ίδρυμα και κατάσταση έγκρισης.</li>
         <li>Για κάθε γραφείο: τα στοιχεία επικοινωνίας και το λογότυπο που συμπληρώνει το ίδιο το γραφείο.</li>
         <li>Τις αναρτήσεις και τα μηνύματα που δημοσιεύουν τα γραφεία.</li>
+        <li>Αν ένα γραφείο το ενεργοποιήσει, ανακοινώσεις που είναι ήδη δημόσιες στο site του μεταφέρονται αυτόματα ως αναρτήσεις του, με σύνδεσμο στην αρχική ανακοίνωση.</li>
       </ul>
       <p><b>Δεν</b> κρατάμε στοιχεία φοιτητών, αποφοίτων ή εργοδοτών. Παρακαλούμε μην τα αναρτάτε.</p></section>
     <section class="stack" style="gap:6px"><h2>Για ποιο σκοπό</h2>
@@ -783,6 +798,8 @@ async function render() {
 async function loadData() {
   const [offices, posts] = await Promise.all([api.offices(), api.posts()]);
   S.offices = offices; S.O = Object.fromEntries(offices.map(o => [o.id, o])); S.posts = posts;
+  // Αυτόματη μεταφορά ανακοινώσεων στο παρασκήνιο (ο διακομιστής το κάνει το πολύ μία φορά την ώρα)
+  if (!DEMO) api.ai('sync_feeds').then(r => { if (r?.added) { refreshPosts().then(() => { S.bulCache = {}; render(); }); } }).catch(() => {});
 }
 async function refreshPosts() { S.posts = await api.posts(); }
 
@@ -790,9 +807,15 @@ async function refreshPosts() { S.posts = await api.posts(); }
    Διάλογοι
    ===================================================================== */
 function newPostDialog(kind = 'drasi') {
+  S.fromLinkUrl = '';
   dialog(`
     <h2>Νέα ανάρτηση</h2>
     <p class="small muted" style="margin-top:-8px">Δημοσιεύεται ως Γραφείο Διασύνδεσης ${esc(officeShort(myOffice()))}.</p>
+    <div class="card pad stack linkbox" style="gap:8px">
+      <label for="p_url" style="font-weight:650;font-size:13px">Έχετε ήδη την ανακοίνωση στο site σας;</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="p_url" type="url" placeholder="Επικολλήστε τον σύνδεσμο, π.χ. https://…" style="flex:1;min-width:200px"><button type="button" class="btn warm" id="fromLink">Συμπλήρωση</button></div>
+      <span class="hint small muted">Η φόρμα συμπληρώνεται αυτόματα από τη σελίδα. Ελέγξτε τη πριν δημοσιεύσετε.</span>
+    </div>
     <form class="form" id="postForm">
       <div class="field"><label for="p_kind">Είδος</label><select id="p_kind">${Object.entries(KINDS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label for="p_title">Τίτλος</label><input class="input" id="p_title" required minlength="3" maxlength="200"></div>
@@ -822,6 +845,23 @@ function newPostDialog(kind = 'drasi') {
     };
     extra(); $('#p_kind').addEventListener('change', extra);
     const busy = (btn, on, label) => { btn.disabled = on; btn.textContent = on ? 'Γράφεται…' : label; };
+    $('#fromLink').addEventListener('click', async ev => {
+      const btn = ev.currentTarget, url = $('#p_url').value.trim();
+      if (!url) { toast('Επικολλήστε πρώτα τον σύνδεσμο της ανακοίνωσης.'); $('#p_url').focus(); return; }
+      btn.disabled = true; btn.textContent = 'Διαβάζεται…';
+      try {
+        const r = await api.ai('from_link', { url });
+        $('#p_kind').value = r.kind; extra();
+        $('#p_title').value = r.title || ''; $('#p_body').value = r.body || '';
+        if ($('#p_date') && r.event_date) $('#p_date').value = r.event_date;
+        if ($('#p_time') && r.event_time) $('#p_time').value = r.event_time;
+        if ($('#p_source') && r.place) $('#p_source').value = r.place;
+        if ($('#p_link')) $('#p_link').value = r.link || url;
+        S.fromLinkUrl = r.link || url;
+        toast('Η φόρμα συμπληρώθηκε. Ελέγξτε τη και πατήστε Δημοσίευση.');
+      } catch (err) { toast(errMsg(err)); }
+      btn.disabled = false; btn.textContent = 'Συμπλήρωση';
+    });
     $('#aiImprove').addEventListener('click', async ev => {
       const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
       if (!body && !title) { toast('Γράψτε πρώτα λίγες λέξεις για την ανάρτηση.'); return; }
@@ -833,7 +873,7 @@ function newPostDialog(kind = 'drasi') {
     $('#postForm').addEventListener('submit', async e => {
       e.preventDefault();
       const k = $('#p_kind').value;
-      const row = { kind: k, title: $('#p_title').value.trim(), body: $('#p_body').value.trim(), link: $('#p_link')?.value.trim() || '' };
+      const row = { kind: k, title: $('#p_title').value.trim(), body: $('#p_body').value.trim(), link: $('#p_link')?.value.trim() || S.fromLinkUrl || '' };
       if (DATED.includes(k)) { row.event_date = $('#p_date').value; row.event_time = $('#p_time').value; }
       if (k === 'ekdilosi') row.source = $('#p_source').value.trim();
       if (k === 'eykairia') row.source = $('#p_source').value.trim();
@@ -879,6 +919,28 @@ document.addEventListener('click', async e => {
   if (act === 'logout') { await api.signOut(); S.me = null; authTab = 'login'; render(); return; }
   if (act === 'recheck') { S.me = await api.me(); if (S.me?.profile?.status === 'approved') await loadData(); render(); return; }
   if (act === 'install' && installEvt) { installEvt.prompt(); installEvt = null; return; }
+  if (act === 'feed-test' || act === 'feed-save') {
+    const url = $('#f_feed').value.trim(), on = $('#f_feed_on').checked, msg = $('#feedMsg'), btn = t.closest('[data-act]');
+    if (!url && (act === 'feed-test' || on)) { toast('Συμπληρώστε τη διεύθυνση του site σας.'); return; }
+    btn.disabled = true;
+    try {
+      let feed = url;
+      if (url) {
+        msg.textContent = 'Γίνεται έλεγχος…';
+        const r = await api.ai('test_feed', { url });
+        feed = r.url;
+        msg.innerHTML = `Βρέθηκε ροή με ${r.count} ανακοινώσεις. Πιο πρόσφατες: ${r.titles.map(x => '«' + esc(x) + '»').join(', ')}.`;
+      }
+      if (act === 'feed-save') {
+        await api.updateOffice(myOffice(), { feed_url: feed || null, feed_enabled: on && !!feed });
+        Object.assign(S.O[myOffice()], { feed_url: feed, feed_enabled: on && !!feed });
+        toast(on ? 'Η αυτόματη μεταφορά ενεργοποιήθηκε' : 'Αποθηκεύτηκε');
+        if (on && feed) { try { const s = await api.ai('sync_feeds', { force: true, office: myOffice() }); if (s?.added) { await refreshPosts(); toast(`Μεταφέρθηκαν ${s.added} ανακοινώσεις`); } } catch (_) {} }
+      }
+    } catch (err) { msg.textContent = errMsg(err); }
+    btn.disabled = false;
+    return;
+  }
 
   const at = t.closest('[data-auth-tab]'); if (at) { authTab = at.dataset.authTab; render(); return; }
   const off = t.closest('[data-office]'); if (off) { S.officeId = off.dataset.office; render(); window.scrollTo(0, 0); return; }

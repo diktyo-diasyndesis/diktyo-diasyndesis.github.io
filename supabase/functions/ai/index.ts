@@ -155,6 +155,87 @@ async function publicOpportunities(monthLabel: string): Promise<string> {
   }
 }
 
+
+/* =====================================================================
+   Ανάγνωση δημόσιων σελίδων και ροών ανακοινώσεων (RSS / Atom)
+   ===================================================================== */
+const ENT: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+function decode(s: string): string {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m);
+}
+function stripHtml(html: string): string {
+  return decode(html
+    .replace(/<(script|style|noscript|svg|nav|header|footer|form|aside)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?>|<\/(p|div|li|h\d|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, " "))
+    .replace(/[ \t ]+/g, " ").replace(/\s*\n\s*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function safePublicUrl(raw: string): URL {
+  let u: URL;
+  try { u = new URL(String(raw || "").trim()); } catch { throw new Error("BAD_URL"); }
+  if (!/^https?:$/.test(u.protocol)) throw new Error("BAD_URL");
+  const h = u.hostname.toLowerCase();
+  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") || /^[\d.]+$/.test(h) || h.includes(":") || !h.includes(".")) throw new Error("BAD_URL");
+  return u;
+}
+async function fetchText(raw: string, maxBytes = 1_500_000): Promise<{ text: string; type: string; url: string }> {
+  const u = safePublicUrl(raw);
+  const res = await fetch(u, { redirect: "follow", signal: AbortSignal.timeout(12000), headers: { "User-Agent": "DiktyoGD/1.0 (+career offices network)", "Accept": "text/html,application/rss+xml,application/atom+xml,application/xml;q=0.9,*/*;q=0.5" } });
+  if (!res.ok) throw new Error("FETCH_FAILED");
+  safePublicUrl(res.url || u.href);
+  const buf = new Uint8Array(await res.arrayBuffer()).slice(0, maxBytes);
+  const type = res.headers.get("content-type") || "";
+  const cs = /charset=([\w-]+)/i.exec(type)?.[1] || "utf-8";
+  let text: string;
+  try { text = new TextDecoder(cs).decode(buf); } catch { text = new TextDecoder().decode(buf); }
+  return { text, type, url: res.url || u.href };
+}
+function meta(html: string, name: string): string {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]*content=["']([^"']*)["']|<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${name}["']`, "i");
+  const m = re.exec(html);
+  return decode((m?.[1] || m?.[2] || "").trim());
+}
+type FeedItem = { title: string; link: string; text: string; date: string };
+function parseFeed(xml: string, base: string): FeedItem[] {
+  const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) || [];
+  const tag = (b: string, n: string) => { const m = new RegExp(`<${n}[^>]*>([\\s\\S]*?)<\\/${n}>`, "i").exec(b); return m ? decode(m[1]).trim() : ""; };
+  return blocks.map((b) => {
+    let link = tag(b, "link");
+    if (!link || link.startsWith("<")) link = /<link[^>]+href=["']([^"']+)["']/i.exec(b)?.[1] || "";
+    try { link = new URL(decode(link), base).href; } catch { link = ""; }
+    const body = tag(b, "content:encoded") || tag(b, "description") || tag(b, "summary") || tag(b, "content");
+    const d = tag(b, "pubDate") || tag(b, "published") || tag(b, "updated") || tag(b, "dc:date");
+    const dt = d ? new Date(d) : null;
+    return { title: stripHtml(tag(b, "title")), link, text: stripHtml(body).slice(0, 1500), date: dt && !isNaN(+dt) ? dt.toISOString() : "" };
+  }).filter((x) => x.title && x.link);
+}
+/* Αν ο χρήστης δώσει τη σελίδα αντί για τη ροή, βρίσκουμε τη ροή μέσα στη σελίδα */
+async function resolveFeed(raw: string): Promise<{ url: string; items: FeedItem[] }> {
+  const first = await fetchText(raw);
+  let items = parseFeed(first.text, first.url);
+  if (items.length) return { url: first.url, items };
+  const m = /<link[^>]+type=["']application\/(?:rss|atom)\+xml["'][^>]*href=["']([^"']+)["']|<link[^>]+href=["']([^"']+)["'][^>]*type=["']application\/(?:rss|atom)\+xml["']/i.exec(first.text);
+  const href = m?.[1] || m?.[2];
+  if (!href) throw new Error("NO_FEED");
+  const feedUrl = new URL(decode(href), first.url).href;
+  const second = await fetchText(feedUrl);
+  items = parseFeed(second.text, second.url);
+  if (!items.length) throw new Error("NO_FEED");
+  return { url: second.url, items };
+}
+function parseJsonLoose(s: string): Record<string, unknown> {
+  try { return JSON.parse(s); } catch { /* συνέχεια */ }
+  const m = /\{[\s\S]*\}/.exec(s);
+  if (m) { try { return JSON.parse(m[0]); } catch { /* συνέχεια */ } }
+  throw new Error("AI_FAILED");
+}
+const KIND_IDS = ["drasi", "ekdilosi", "seminario", "eykairia", "yliko", "diakrisi", "nea"];
+const EXTRACT_RULES = `Είδη: drasi (δράση που έγινε), ekdilosi (εκδήλωση με ημερομηνία, π.χ. ημέρα καριέρας), seminario (διαδικτυακό σεμινάριο), eykairia (δημόσια ευκαιρία: πρόγραμμα, διαγωνισμός, υποτροφία), yliko (υλικό για φοιτητές: οδηγός, βίντεο), diakrisi (βραβείο/διάκριση), nea (πρακτικά νέα του γραφείου).
+ΚΑΝΟΝΕΣ: χρησιμοποιείς ΜΟΝΟ ό,τι γράφει το κείμενο· δεν επινοείς ημερομηνίες, ώρες, τόπους ή αριθμούς. Η περίληψη είναι 1-3 σύντομες προτάσεις, στα ελληνικά, χωρίς ονόματα φοιτητών. Ημερομηνίες σε μορφή ΕΕΕΕ-ΜΜ-ΗΗ, ώρα ΩΩ:ΛΛ, αλλιώς κενό.`;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -182,15 +263,105 @@ Deno.serve(async (req) => {
       return json({ text });
     }
 
-    /* ---------- Αγγλική εκδοχή ---------- */
-    if (input.action === "translate") {
+    /* ---------- Ανάρτηση από σύνδεσμο ---------- */
+    if (input.action === "from_link") {
+      let page;
+      try { page = await fetchText(String(input.url || "")); }
+      catch (e) { return json({ error: (e as Error).message === "BAD_URL" ? "BAD_URL" : "FETCH_FAILED" }, 400); }
+      const html = page.text;
+      const title = meta(html, "og:title") || stripHtml(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] || "");
+      const main = /<(article|main)[\s>][\s\S]*?<\/\1>/i.exec(html)?.[0] || html;
+      const text = stripHtml(main).slice(0, 7000);
       const out = await gemini(
-        "You translate Greek university career-office announcements into clear, natural British English. Keep the meaning exactly; do not add facts. Return JSON: {\"title\": string, \"body\": string}.",
-        `Title: ${String(input.title || "").slice(0, 200)}\nText:\n${String(input.body || "").slice(0, 4000)}`,
+        `Διαβάζεις μια δημόσια ανακοίνωση από ιστοσελίδα ελληνικού Γραφείου Διασύνδεσης και τη μετατρέπεις σε ανάρτηση για το Δίκτυο των Γραφείων.
+${EXTRACT_RULES}
+Επιστρέφεις JSON: {"kind": "...", "title": "σύντομος τίτλος", "body": "περίληψη", "event_date": "", "event_time": "", "place": ""}.`,
+        `Σελίδα: ${page.url}\nΤίτλος σελίδας: ${title}\nΣημερινή ημερομηνία: ${new Date().toISOString().slice(0, 10)}\nΚείμενο:\n${text}`,
         true,
       );
-      const parsed = JSON.parse(out);
-      return json({ title: String(parsed.title || ""), body: String(parsed.body || "") });
+      const r = parseJsonLoose(out);
+      const kind = KIND_IDS.includes(String(r.kind)) ? String(r.kind) : "nea";
+      const dateOk = (s: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")) ? String(s) : "";
+      return json({
+        kind, title: String(r.title || title).slice(0, 200), body: String(r.body || "").slice(0, 2000),
+        event_date: dateOk(r.event_date), event_time: /^\d{2}:\d{2}$/.test(String(r.event_time || "")) ? String(r.event_time) : "",
+        place: String(r.place || "").slice(0, 120), link: page.url,
+      });
+    }
+
+    /* ---------- Έλεγχος ροής ανακοινώσεων (για τη ρύθμιση) ---------- */
+    if (input.action === "test_feed") {
+      try {
+        const f = await resolveFeed(String(input.url || ""));
+        return json({ url: f.url, count: f.items.length, titles: f.items.slice(0, 3).map((x) => x.title) });
+      } catch (e) {
+        const m = (e as Error).message;
+        return json({ error: ["BAD_URL", "NO_FEED"].includes(m) ? m : "FETCH_FAILED" }, 400);
+      }
+    }
+
+    /* ---------- Αυτόματη μεταφορά από τις ροές των γραφείων (το πολύ μία φορά την ώρα) ---------- */
+    if (input.action === "sync_feeds") {
+      const { data: st } = await admin.from("sync_state").select("last_run").eq("id", 1).maybeSingle();
+      const force = input.force === true && input.office === me.office_id;
+      if (!force && st?.last_run && Date.now() - new Date(st.last_run).getTime() < 3600e3) return json({ skipped: true, added: 0 });
+      await admin.from("sync_state").upsert({ id: 1, last_run: new Date().toISOString() });
+      let q = admin.from("offices").select("id,name,feed_url").eq("feed_enabled", true).not("feed_url", "is", null);
+      if (force) q = q.eq("id", me.office_id);
+      const { data: feeds } = await q;
+      let added = 0;
+      const since = Date.now() - 30 * 864e5;
+      for (const o of feeds || []) {
+        try {
+          const f = await resolveFeed(o.feed_url);
+          const fresh = f.items.filter((x) => !x.date || new Date(x.date).getTime() >= since).slice(0, 8);
+          if (!fresh.length) continue;
+          const links = fresh.map((x) => x.link);
+          const { data: have } = await admin.from("posts").select("source_url").eq("office_id", o.id).in("source_url", links);
+          const { data: seen } = await admin.from("feed_seen").select("source_url").eq("office_id", o.id).in("source_url", links);
+          const known = new Set([...(have || []), ...(seen || [])].map((x) => x.source_url));
+          const todo = fresh.filter((x) => !known.has(x.link)).slice(0, 5);
+          if (!todo.length) continue;
+          const out = await gemini(
+            `Ταξινομείς ανακοινώσεις από την ιστοσελίδα του Γραφείου Διασύνδεσης «${o.name}» για το Δίκτυο των Γραφείων.
+${EXTRACT_RULES}
+Αν μια ανακοίνωση δεν αφορά φοιτητές, αποφοίτους ή την αγορά εργασίας (π.χ. εσωτερικές διοικητικές ανακοινώσεις, προσλήψεις προσωπικού), βάλε "skip": true.
+Επιστρέφεις JSON: {"items": [{"i": αριθμός, "skip": false, "kind": "...", "title": "...", "body": "...", "event_date": "", "event_time": "", "place": ""}]}.`,
+            JSON.stringify(todo.map((x, i) => ({ i, τίτλος: x.title, κείμενο: x.text, ημερομηνία_δημοσίευσης: x.date.slice(0, 10) }))),
+            true,
+          );
+          const res = parseJsonLoose(out);
+          const list = Array.isArray(res.items) ? res.items as Record<string, unknown>[] : [];
+          const rows = list.filter((r) => !r.skip && todo[Number(r.i)]).map((r) => {
+            const src = todo[Number(r.i)];
+            const d = /^\d{4}-\d{2}-\d{2}$/.test(String(r.event_date || "")) ? String(r.event_date) : null;
+            let kind = KIND_IDS.includes(String(r.kind)) ? String(r.kind) : "nea";
+            if (["seminario", "ekdilosi"].includes(kind) && !d) kind = "nea";
+            return {
+              office_id: o.id, author: null, auto: true, source_url: src.link, link: src.link, kind,
+              title: String(r.title || src.title).slice(0, 200), body: String(r.body || "").slice(0, 2000),
+              event_date: ["seminario", "ekdilosi"].includes(kind) ? d : null,
+              event_time: /^\d{2}:\d{2}$/.test(String(r.event_time || "")) ? String(r.event_time) : null,
+              source: kind === "ekdilosi" ? String(r.place || "").slice(0, 120) || null : null,
+              created_at: src.date || new Date().toISOString(),
+            };
+          });
+          // ό,τι παραλείφθηκε το σημειώνουμε κι αυτό, για να μην ξαναεξεταστεί
+          const skipped = todo.filter((x) => !rows.some((r) => r.source_url === x.link));
+          if (rows.length) {
+            const { error } = await admin.from("posts").upsert(rows, { onConflict: "office_id,source_url", ignoreDuplicates: true });
+            if (error) console.error("[ai] εισαγωγή:", error.message); else added += rows.length;
+          }
+          if (skipped.length) {
+            await admin.from("feed_seen").upsert(skipped.map((x) => ({ office_id: o.id, source_url: x.link })), { onConflict: "office_id,source_url", ignoreDuplicates: true });
+          }
+          await admin.from("offices").update({ feed_checked_at: new Date().toISOString() }).eq("id", o.id);
+          console.log(`[ai] ροή ${o.id}: +${rows.length}, παραλείφθηκαν ${skipped.length}`);
+        } catch (e) {
+          console.error(`[ai] ροή ${o.id}:`, (e as Error).message);
+        }
+      }
+      return json({ added });
     }
 
     /* ---------- Δελτίο του μήνα ---------- */

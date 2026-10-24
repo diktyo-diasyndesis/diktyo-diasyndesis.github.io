@@ -119,14 +119,14 @@ const api = {
   async signIn(email, password) {
     if (DEMO) { mock.session = { user:{ id:mock.me.id, email:mock.me.email }, profile:mock.me }; return; }
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message.includes('Invalid login') ? 'Λάθος email ή κωδικός.' : error.message);
+    if (error) throw new Error(error.message.includes('Invalid login') ? 'Τα στοιχεία εισόδου δεν είναι σωστά.' : error.message);
   },
   async signUp(email, password, full_name) {
     if (DEMO) throw new Error('Στην προεπισκόπηση δεν γίνονται εγγραφές.');
     const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name } } });
     if (error) {
       if (/database error/i.test(error.message)) throw new Error('Επιτρέπεται εγγραφή μόνο με ιδρυματικό email ελληνικού ΑΕΙ.');
-      if (/already registered/i.test(error.message)) throw new Error('Υπάρχει ήδη λογαριασμός με αυτό το email. Συνδεθείτε από την καρτέλα «Είσοδος».');
+      if (/already registered/i.test(error.message)) throw new Error('Υπάρχει ήδη λογαριασμός με αυτό το email. Η σύνδεση γίνεται από την καρτέλα «Είσοδος».');
       throw new Error(error.message);
     }
   },
@@ -205,7 +205,7 @@ const api = {
     try {
       res = await Promise.race([
         sb.functions.invoke('ai', { body: { action, ...payload } }),
-        new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('Η υπηρεσία άργησε πολύ να απαντήσει. Δοκιμάστε ξανά σε λίγο.'), { code: 'TIMEOUT' })), action === 'bulletin' ? 90000 : 45000))
+        new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('Η υπηρεσία δεν απάντησε εγκαίρως. Παρακαλούμε δοκιμάστε εκ νέου σε λίγο.'), { code: 'TIMEOUT' })), action === 'bulletin' ? 90000 : 45000))
       ]);
     } catch (e) { throw e; }
     const { data, error } = res;
@@ -214,11 +214,11 @@ const api = {
       try { code = (await error.context?.clone?.().json?.())?.error || (await error.context?.json())?.error || ''; } catch (_) {}
       const msgs = {
         NO_AI_KEY: 'Η αυτόματη σύνταξη δεν έχει ενεργοποιηθεί ακόμη.',
-        AI_BUSY: 'Η υπηρεσία είναι απασχολημένη. Δοκιμάστε ξανά σε ένα λεπτό.',
-        AI_FAILED: 'Η υπηρεσία δεν απάντησε. Δοκιμάστε ξανά αργότερα.',
-        BAD_URL: 'Ο σύνδεσμος δεν είναι έγκυρος. Επικολλήστε ολόκληρη τη διεύθυνση, π.χ. https://…',
-        FETCH_FAILED: 'Δεν ήταν δυνατό να ανοίξει η σελίδα. Ελέγξτε ότι ο σύνδεσμος είναι δημόσιος.',
-        NO_FEED: 'Δεν βρέθηκε ροή ανακοινώσεων (RSS) σε αυτή τη διεύθυνση.'
+        AI_BUSY: 'Η υπηρεσία είναι προσωρινά απασχολημένη. Παρακαλούμε δοκιμάστε εκ νέου σε ένα λεπτό.',
+        AI_FAILED: 'Η υπηρεσία δεν είναι διαθέσιμη αυτή τη στιγμή. Παρακαλούμε δοκιμάστε εκ νέου αργότερα.',
+        BAD_URL: 'Ο σύνδεσμος δεν είναι έγκυρος. Παρακαλούμε εισαγάγετε την πλήρη διεύθυνση, π.χ. https://…',
+        FETCH_FAILED: 'Δεν ήταν δυνατή η πρόσβαση στη σελίδα. Παρακαλούμε βεβαιωθείτε ότι ο σύνδεσμος είναι δημόσια προσβάσιμος.',
+        NO_FEED: 'Δεν εντοπίστηκε ροή ανακοινώσεων (RSS) στη συγκεκριμένη διεύθυνση.'
       };
       const err = new Error(msgs[code] || `Η αυτόματη σύνταξη δεν είναι διαθέσιμη αυτή τη στιγμή (κωδικός: ${code || status || error.name || 'δίκτυο'}).`);
       err.code = code || 'UNAVAILABLE';
@@ -302,7 +302,7 @@ function toast(msg) {
   t.textContent = msg;
   toastTimer = setTimeout(() => t.remove(), 2800);
 }
-function errMsg(e) { return e?.message || 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.'; }
+function errMsg(e) { return e?.message || 'Παρουσιάστηκε σφάλμα. Παρακαλούμε δοκιμάστε εκ νέου.'; }
 
 function dialog(html, onMount) {
   const layer = $('#layer');
@@ -400,7 +400,7 @@ function postCard(p, { compact = false } = {}) {
     <div class="who">${avatar(p.office_id, 'sm')}<div style="min-width:0"><b>${esc(o.name || '')}</b><small>${esc(o.city || '')} · ${fmtDate(p.created_at)}</small></div></div>
     <div><span class="kind k-${p.kind}">${KINDS[p.kind]}</span></div>
     <div data-lang="el"><h3>${esc(p.title)}</h3>${body ? `<p style="margin-top:8px">${esc(body)}</p>` : ''}</div>
-    ${p.auto ? '<div class="small muted">Μεταφέρθηκε αυτόματα από το site του γραφείου.</div>' : ''}
+    ${p.auto ? '<div class="small muted">Μεταφέρθηκε αυτόματα από την ιστοσελίδα του Γραφείου.</div>' : ''}
     <div class="foot">${foot}<span style="display:flex;gap:6px">
 
       ${link ? `<a class="btn sm" href="${esc(link)}" target="_blank" rel="noopener">${p.kind === 'seminario' ? 'Εγγραφή' : p.kind === 'yliko' ? 'Άνοιγμα υλικού' : p.auto ? 'Πλήρης ανακοίνωση' : 'Περισσότερα'}</a>` : ''}
@@ -431,7 +431,7 @@ function vHome() {
     <div style="position:relative;display:flex;flex-direction:column;gap:10px">
       <div class="eyebrow">Καλώς ήρθατε · Γραφείο Διασύνδεσης ${esc(officeShort(p.office_id))}</div>
       <h1>Τα Γραφεία Διασύνδεσης όλης της χώρας, σε ένα κοινό σημείο</h1>
-      <p class="lede">Κάθε γραφείο δείχνει τη δουλειά του, μοιράζεται υλικό, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και ενημερώνει για δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
+      <p class="lede">Κάθε Γραφείο παρουσιάζει το έργο του, μοιράζεται υλικό, ανοίγει σεμινάρια σε φοιτητές άλλων ιδρυμάτων και ενημερώνει για δημόσιες ευκαιρίες. Η συμμετοχή είναι εθελοντική.</p>
       <div class="hero-actions"><button class="btn on" data-act="new-post">Νέα ανάρτηση</button><button class="btn out" data-go="deltio">Δελτίο του Δικτύου</button></div>
     </div>
     <div class="hero-stats">
@@ -445,13 +445,13 @@ function vHome() {
   ${!S.O[p.office_id]?.feed_enabled ? `<section class="card pad autobox">
     <div class="autobox-ic">${I.posts}</div>
     <div style="min-width:0;flex:1">
-      <p style="font-size:15.5px;font-weight:500">Συνδέστε μία φορά το site του γραφείου σας και οι ανακοινώσεις σας θα εμφανίζονται αυτόματα στο Δίκτυο. Δεν χρειάζεται να γράφετε τίποτα δεύτερη φορά.</p></div>
-    <button class="btn primary" data-go="logariasmos">Σύνδεση του site μας</button>
+      <p style="font-size:15.5px;font-weight:500">Με τη σύνδεση της ιστοσελίδας του Γραφείου σας, οι ανακοινώσεις σας θα εμφανίζονται αυτόματα στο Δίκτυο, χωρίς να απαιτείται επιπλέον καταχώριση.</p></div>
+    <button class="btn primary" data-go="logariasmos">Σύνδεση ιστοσελίδας</button>
   </section>` : ''}
   <div class="cols">
     <section class="stack" style="gap:12px">
       <div class="sec-head"><h2>Πρόσφατες αναρτήσεις</h2><a href="#anartiseis" data-go="anartiseis">Όλες →</a></div>
-      <div class="grid">${S.posts.slice(0, 4).map(p => postCard(p, { compact: true })).join('') || '<div class="card empty">Δεν υπάρχουν ακόμη αναρτήσεις. Γίνετε το πρώτο γραφείο που θα μοιραστεί κάτι.</div>'}</div>
+      <div class="grid">${S.posts.slice(0, 4).map(p => postCard(p, { compact: true })).join('') || '<div class="card empty">Δεν υπάρχουν ακόμη αναρτήσεις.</div>'}</div>
     </section>
     <aside class="stack" style="gap:14px">
       <div class="card pad"><div class="sec-head" style="margin-bottom:4px"><h2>Επόμενες εκδηλώσεις και σεμινάρια</h2><a href="#anartiseis" data-go="anartiseis" data-kind="seminario">Όλα →</a></div>
@@ -514,12 +514,12 @@ function vPosts() {
   if (S.region) list = list.filter(p => S.O[p.office_id]?.region === S.region);
   if (DATED.includes(S.kind)) list = list.slice().sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''));
   const intro = {
-    all: 'Ό,τι μοιράζονται τα γραφεία: δράσεις, εκδηλώσεις, σεμινάρια, ευκαιρίες, υλικό, διακρίσεις και νέα.',
+    all: 'Οι αναρτήσεις των Γραφείων: δράσεις, εκδηλώσεις, σεμινάρια, ευκαιρίες, υλικό, διακρίσεις και νέα.',
     ekdilosi: 'Ημέρες καριέρας, ημερίδες και άλλες εκδηλώσεις των γραφείων, με ημερομηνία και τόπο.',
     yliko: 'Δημόσιοι οδηγοί, βίντεο και υλικό που έφτιαξαν τα γραφεία για φοιτητές και θέλουν να το μοιραστούν.',
     diakrisi: 'Βραβεία, αναγνωρίσεις και ορόσημα των γραφείων.',
     nea: 'Πρακτικά νέα των γραφείων: νέο ωράριο, νέα ιστοσελίδα, νέα υπηρεσία για φοιτητές.',
-    drasi: 'Ό,τι θέλει κάθε γραφείο να δείξει: μια εκδήλωση που πέτυχε, ένα νέο πρόγραμμα, μια ιδέα που δούλεψε.',
+    drasi: 'Δράσεις και πρωτοβουλίες που κάθε Γραφείο επιθυμεί να παρουσιάσει: εκδηλώσεις, νέα προγράμματα, πρακτικές που εφαρμόστηκαν με επιτυχία.',
     seminario: 'Διαδικτυακά σεμινάρια που ένα γραφείο ανοίγει και σε φοιτητές άλλων ιδρυμάτων. Οι εγγραφές γίνονται στο σύστημα του ιδρύματος που τα διοργανώνει.',
     eykairia: 'Προγράμματα, διαγωνισμοί και ημερίδες που έχουν ήδη ανακοινωθεί δημόσια.'
   }[S.kind];
@@ -546,12 +546,12 @@ async function vThreads() {
         <div style="min-width:0"><h2 style="font-size:17px">${esc(t.title)}</h2><div class="small muted">Ξεκίνησε από ${esc(officeShort(t.office_id))} · ${fmtDate(t.created_at)}</div></div>
         <button class="btn ghost sm" data-thread-back>Λίστα</button></div>
       <div class="msgs">${msgs.map(m => `<div class="msg ${m.office_id === myOffice() ? 'mine' : ''}">${avatar(m.office_id, 'sm')}<div class="bub"><b>Γραφείο Διασύνδεσης ${esc(officeShort(m.office_id))} <span class="muted" style="font-weight:400">· ${fmtDate(m.created_at)}</span></b><div>${esc(m.body)}</div></div></div>`).join('')}</div>
-      <form class="compose" id="replyForm"><input class="input" id="replyText" placeholder="Γράψτε απάντηση" aria-label="Απάντηση" maxlength="4000"><button class="btn primary">Αποστολή</button></form>
+      <form class="compose" id="replyForm"><input class="input" id="replyText" placeholder="Η απάντησή σας" aria-label="Απάντηση" maxlength="4000"><button class="btn primary">Αποστολή</button></form>
     </section>` : '';
   const narrow = window.matchMedia('(max-width: 820px)').matches;
   return `
-  <div class="page-head"><div><h1>Συζήτηση</h1><p class="lede">Κλειστός χώρος μόνο για τα στελέχη των γραφείων, για γνωριμία και απλή συνεννόηση.</p></div></div>
-  <div class="threads">${narrow ? (t ? pane : list) : list + (pane || '<div class="card empty">Επιλέξτε μια συζήτηση.</div>')}</div>`;
+  <div class="page-head"><div><h1>Συζήτηση</h1><p class="lede">Χώρος επικοινωνίας αποκλειστικά για τα στελέχη των Γραφείων Διασύνδεσης.</p></div></div>
+  <div class="threads">${narrow ? (t ? pane : list) : list + (pane || '<div class="card empty">Επιλέξτε μια συζήτηση από τη λίστα.</div>')}</div>`;
 }
 
 /* ---------- Δελτίο ---------- */
@@ -623,7 +623,7 @@ async function vBulletin() {
   const how = `<div class="how">
     <div class="card">${I.doc}<div><b>Μόνο από αναρτήσεις</b><span>Χρησιμοποιεί αποκλειστικά ό,τι έχουν ήδη δημοσιεύσει τα γραφεία.</span></div></div>
     <div class="card">${I.shield}<div><b>Κανένα προσωπικό δεδομένο</b><span>Χρησιμοποιείται μόνο το κείμενο των αναρτήσεων, ποτέ στοιχεία χρηστών.</span></div></div>
-    <div class="card">${I.person}<div><b>Κανείς δεν το επεξεργάζεται</b><span>Κανένα γραφείο δεν μπορεί να αλλάξει όσα γράφτηκαν για τα άλλα. Για διόρθωση, το γραφείο διορθώνει την ανάρτησή του.</span></div></div>
+    <div class="card">${I.person}<div><b>Χωρίς παρεμβάσεις</b><span>Κανένα Γραφείο δεν μπορεί να τροποποιήσει όσα αφορούν άλλα Γραφεία. Οι διορθώσεις γίνονται στις ίδιες τις αναρτήσεις.</span></div></div>
   </div>`;
   const chips = `<div class="tabs" role="tablist">${months.map(m => `<button class="tab" role="tab" data-bul-month="${m}" aria-selected="${m === month}">${esc(monthLabel(m))}</button>`).join('')}</div>`;
   const cached = S.bulCache[month];
@@ -633,12 +633,12 @@ async function vBulletin() {
     setTimeout(async () => { await loadBulletin(month); if (S.view === 'deltio' && S.bulMonth === month) render(); }, 0);
   } else {
     body = `${cached.fallback ? `<div class="alert info">${esc(cached.reason || '')} Εμφανίζεται προσωρινή εκδοχή.</div>` : ''}
-      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn sm" data-bul-copy>Αντιγραφή κειμένου</button>${cached.fallback ? '<button class="btn sm" data-bul-retry>Δοκιμή ξανά</button>' : ''}</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn sm" data-bul-copy>Αντιγραφή κειμένου</button>${cached.fallback ? '<button class="btn sm" data-bul-retry>Νέα προσπάθεια</button>' : ''}</div>
       ${paper(cached.b, { live: month === curMonth(), fallback: cached.fallback })}`;
   }
   return `
   <div class="page-head"><div><h1>Δελτίο του Δικτύου</h1>
-    <p class="lede">Μια μηνιαία εικόνα όσων κάνουν τα γραφεία διασύνδεσης της χώρας, μαζί με δημόσιες ευκαιρίες για φοιτητές. Συντάσσεται αυτόματα, χωρίς επιπλέον δουλειά για κανένα γραφείο.</p></div></div>
+    <p class="lede">Μηνιαία σύνοψη της δράσης των Γραφείων Διασύνδεσης της χώρας, καθώς και δημόσιων ευκαιριών για φοιτητές. Συντάσσεται αυτόματα, χωρίς επιβάρυνση των Γραφείων.</p></div></div>
   ${how}
   ${chips}
   ${body}`;
@@ -657,7 +657,7 @@ function vAccount() {
     <div style="display:flex;gap:8px;flex-wrap:wrap">${isAdmin() ? '<button class="btn" data-go="diaxeirisi">Διαχείριση χρηστών</button>' : ''}<button class="btn" data-act="logout">Αποσύνδεση</button></div></div>
   <div class="cols">
     <section class="card pad stack" style="gap:16px">
-      <div><h2>Στοιχεία του γραφείου μου</h2><p class="small muted">Αυτά βλέπουν τα υπόλοιπα γραφεία στη σελίδα του ιδρύματός σας.</p></div>
+      <div><h2>Στοιχεία του γραφείου μου</h2><p class="small muted">Τα στοιχεία αυτά εμφανίζονται στη σελίδα του ιδρύματός σας.</p></div>
       <div class="office-head">${avatar(p.office_id, 'lg')}<div class="stack" style="gap:6px"><b>${esc(o.name)}</b>
         <label class="btn sm" style="width:max-content">Ανέβασμα λογοτύπου<input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden></label>
         <span class="small muted">PNG, JPG ή SVG. Το κενό περιθώριο κόβεται αυτόματα.</span></div></div>
@@ -672,20 +672,20 @@ function vAccount() {
     </section>
     <aside class="stack" style="gap:14px">
       <div class="card pad stack" style="gap:10px"><h2>Αυτόματη μεταφορά ανακοινώσεων</h2>
-        <p class="small muted">Αν το site του γραφείου σας έχει ροή ανακοινώσεων (RSS), οι νέες ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο, χωρίς επιπλέον δουλειά. Μπορείτε να το σταματήσετε όποτε θέλετε.</p>
-        <div class="field"><label for="f_feed">Διεύθυνση του site ή της ροής</label><input class="input" id="f_feed" type="url" placeholder="https://…" value="${esc(o.feed_url || '')}"></div>
+        <p class="small muted">Εφόσον η ιστοσελίδα του Γραφείου σας διαθέτει ροή ανακοινώσεων (RSS), οι νέες ανακοινώσεις εμφανίζονται αυτόματα στο Δίκτυο. Η λειτουργία μπορεί να απενεργοποιηθεί οποιαδήποτε στιγμή.</p>
+        <div class="field"><label for="f_feed">Διεύθυνση ιστοσελίδας ή ροής RSS</label><input class="input" id="f_feed" type="url" placeholder="https://…" value="${esc(o.feed_url || '')}"></div>
         <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="f_feed_on" ${o.feed_enabled ? 'checked' : ''}> Ενεργή αυτόματη μεταφορά</label>
         <div id="feedMsg" class="small muted">${o.feed_checked_at ? 'Τελευταίος έλεγχος: ' + fmtDate(o.feed_checked_at) : ''}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="feed-test">Έλεγχος</button><button class="btn sm primary" data-act="feed-save">Αποθήκευση</button></div>
       </div>
       <div class="card pad stack" style="gap:10px"><h2>Εγκατάσταση εφαρμογής</h2>
         ${standalone ? '<p class="small">Η εφαρμογή είναι ήδη εγκατεστημένη σε αυτή τη συσκευή.</p>'
-          : installEvt ? '<p class="small muted">Προσθέστε το Δίκτυο στην οθόνη σας για να ανοίγει σαν κανονική εφαρμογή.</p><div><button class="btn primary" data-act="install">Εγκατάσταση</button></div>'
-          : ios ? '<p class="small muted">Στο iPhone ή iPad: πατήστε το κουμπί Κοινοποίηση στο Safari και μετά «Προσθήκη στην οθόνη Αφετηρίας».</p>'
-          : '<p class="small muted">Στον υπολογιστή: πατήστε το εικονίδιο εγκατάστασης στη γραμμή διευθύνσεων του Chrome ή του Edge. Στο Android: μενού ⋮ και «Προσθήκη στην αρχική οθόνη».</p>'}
+          : installEvt ? '<p class="small muted">Μπορείτε να προσθέσετε το Δίκτυο στη συσκευή σας, ώστε να ανοίγει ως εφαρμογή.</p><div><button class="btn primary" data-act="install">Εγκατάσταση</button></div>'
+          : ios ? '<p class="small muted">Σε iPhone ή iPad: από το κουμπί «Κοινοποίηση» του Safari, επιλογή «Προσθήκη στην οθόνη Αφετηρίας».</p>'
+          : '<p class="small muted">Σε υπολογιστή: από το εικονίδιο εγκατάστασης στη γραμμή διευθύνσεων του Chrome ή του Edge. Σε Android: από το μενού ⋮, επιλογή «Προσθήκη στην αρχική οθόνη».</p>'}
       </div>
-      <div class="card pad stack" style="gap:6px"><h2>Προσωπικά δεδομένα</h2><p class="small muted">Τι κρατά η εφαρμογή και ποια δικαιώματα έχετε.</p><div><button class="btn sm" data-go="aporrito">Ενημέρωση</button></div></div>
-      <div class="card pad stack" style="gap:6px"><h2>Ο ρόλος μου</h2><p class="small">${isAdmin() ? 'Διαχειριστής του Δικτύου: εγκρίνετε τους νέους χρήστες του Δικτύου.' : 'Στέλεχος γραφείου: δημοσιεύετε αναρτήσεις και ενημερώνετε τα στοιχεία του γραφείου σας.'}</p></div>
+      <div class="card pad stack" style="gap:6px"><h2>Προσωπικά δεδομένα</h2><p class="small muted">Ποια δεδομένα τηρούνται και ποια δικαιώματα έχετε.</p><div><button class="btn sm" data-go="aporrito">Ενημέρωση</button></div></div>
+      <div class="card pad stack" style="gap:6px"><h2>Ο ρόλος μου</h2><p class="small">${isAdmin() ? 'Διαχειριστής του Δικτύου: έγκριση νέων χρηστών.' : 'Στέλεχος Γραφείου: δημοσίευση αναρτήσεων και ενημέρωση των στοιχείων του Γραφείου.'}</p></div>
     </aside>
   </div>`;
 }
@@ -698,19 +698,19 @@ function vPrivacy() {
     <p class="lede">Πώς χειρίζεται το Δίκτυο Γραφείων Διασύνδεσης τα στοιχεία των χρηστών του.</p></div></div>
   <article class="card pad stack" style="gap:16px;max-width:820px">
     <section class="stack" style="gap:6px"><h2>Ποιος είναι υπεύθυνος</h2>
-      <p>Το Δίκτυο είναι πιλοτική πρωτοβουλία του Γραφείου Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας. Για ερωτήματα σχετικά με τα δεδομένα σας επικοινωνήστε με το Γραφείο Διασύνδεσης του ΠΔΜ.</p></section>
-    <section class="stack" style="gap:6px"><h2>Ποια δεδομένα κρατάμε</h2>
+      <p>Το Δίκτυο είναι πιλοτική πρωτοβουλία του Γραφείου Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας. Για ερωτήματα σχετικά με τα δεδομένα σας, μπορείτε να επικοινωνήσετε με το Γραφείο Διασύνδεσης του ΠΔΜ.</p></section>
+    <section class="stack" style="gap:6px"><h2>Ποια δεδομένα τηρούνται</h2>
       <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
         <li>Για κάθε χρήστη: ονοματεπώνυμο, υπηρεσιακό email, ίδρυμα και κατάσταση έγκρισης.</li>
         <li>Για κάθε γραφείο: τα στοιχεία επικοινωνίας και το λογότυπο που συμπληρώνει το ίδιο το γραφείο.</li>
         <li>Τις αναρτήσεις και τα μηνύματα που δημοσιεύουν τα γραφεία.</li>
-        <li>Αν ένα γραφείο το ενεργοποιήσει, ανακοινώσεις που είναι ήδη δημόσιες στο site του μεταφέρονται αυτόματα ως αναρτήσεις του, με σύνδεσμο στην αρχική ανακοίνωση.</li>
+        <li>Αν ένα γραφείο το ενεργοποιήσει, ανακοινώσεις που είναι ήδη δημόσιες στην ιστοσελίδα του μεταφέρονται αυτόματα ως αναρτήσεις του, με σύνδεσμο στην αρχική ανακοίνωση.</li>
       </ul>
-      <p><b>Δεν</b> κρατάμε στοιχεία φοιτητών, αποφοίτων ή εργοδοτών. Παρακαλούμε μην τα αναρτάτε.</p></section>
+      <p><b>Δεν</b> τηρούνται στοιχεία φοιτητών, αποφοίτων ή εργοδοτών. Παρακαλούμε να μην περιλαμβάνονται στις αναρτήσεις.</p></section>
     <section class="stack" style="gap:6px"><h2>Για ποιο σκοπό</h2>
       <p>Αποκλειστικά για την επικοινωνία και τη συνεργασία μεταξύ των Γραφείων Διασύνδεσης των ΑΕΙ. Τα δεδομένα δεν χρησιμοποιούνται για διαφήμιση, δεν πωλούνται και δεν δίνονται σε τρίτους.</p></section>
     <section class="stack" style="gap:6px"><h2>Ποιος τα βλέπει</h2>
-      <p>Μόνο εγκεκριμένα στελέχη Γραφείων Διασύνδεσης. Τα email των χρηστών τα βλέπουν μόνο οι διαχειριστές, για την έγκριση της πρόσβασης.</p></section>
+      <p>Μόνο εγκεκριμένα στελέχη Γραφείων Διασύνδεσης. Τα email των χρηστών είναι ορατά μόνο στους διαχειριστές, για την έγκριση της πρόσβασης.</p></section>
     <section class="stack" style="gap:6px"><h2>Πού αποθηκεύονται</h2>
       <p>Σε διακομιστές της υπηρεσίας Supabase στην Ευρωπαϊκή Ένωση (Ιρλανδία). Η σελίδα της εφαρμογής φιλοξενείται στο GitHub Pages, που δεν αποθηκεύει δεδομένα χρηστών.</p></section>
     <section class="stack" style="gap:6px"><h2>Τεχνητή νοημοσύνη</h2>
@@ -718,19 +718,19 @@ function vPrivacy() {
     <section class="stack" style="gap:6px"><h2>Για πόσο</h2>
       <p>Όσο ο λογαριασμός σας είναι ενεργός. Μπορείτε να ζητήσετε οποιαδήποτε στιγμή τη διαγραφή του λογαριασμού σας και των στοιχείων σας.</p></section>
     <section class="stack" style="gap:6px"><h2>Τα δικαιώματά σας</h2>
-      <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης και διαγραφής των δεδομένων σας, καθώς και δικαίωμα καταγγελίας στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα. Τα στοιχεία του γραφείου σας μπορείτε να τα διορθώσετε μόνοι σας από τη σελίδα «Ο λογαριασμός μου».</p></section>
+      <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης και διαγραφής των δεδομένων σας, καθώς και δικαίωμα καταγγελίας στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα. Τα στοιχεία του Γραφείου σας μπορούν να διορθωθούν από τη σελίδα «Ο λογαριασμός μου».</p></section>
   </article>`;
 }
 
 /* ---------- Διαχείριση ---------- */
 async function vAdmin() {
-  if (!isAdmin()) return '<div class="card empty">Η σελίδα είναι μόνο για διαχειριστές.</div>';
+  if (!isAdmin()) return '<div class="card empty">Η σελίδα είναι διαθέσιμη μόνο στους διαχειριστές.</div>';
   const all = await api.profiles();
   const rows = S.adminTab === 'pending' ? all.filter(p => p.status === 'pending') : all;
   const st = { pending: 'Σε αναμονή', approved: 'Εγκεκριμένος', rejected: 'Απορρίφθηκε' };
   return `
   <div><button class="btn ghost sm" data-go="logariasmos">← Λογαριασμός</button></div>
-  <div class="page-head"><div><h1>Διαχείριση χρηστών</h1><p class="lede">Πριν εγκρίνετε κάποιον, βεβαιωθείτε ότι ανήκει στο Γραφείο Διασύνδεσης του ιδρύματός του, για παράδειγμα με ένα τηλεφώνημα στο γραφείο.</p></div></div>
+  <div class="page-head"><div><h1>Διαχείριση χρηστών</h1><p class="lede">Πριν από την έγκριση, προτείνεται να επιβεβαιώνεται ότι ο αιτών ανήκει στο Γραφείο Διασύνδεσης του ιδρύματός του (π.χ. τηλεφωνικά).</p></div></div>
   <div class="tabs"><button class="tab" data-admin-tab="pending" aria-selected="${S.adminTab === 'pending'}">Σε αναμονή (${all.filter(p => p.status === 'pending').length})</button><button class="tab" data-admin-tab="all" aria-selected="${S.adminTab === 'all'}">Όλοι (${all.length})</button></div>
   <div class="card table-wrap"><table>
     <thead><tr><th>Όνομα</th><th>Email</th><th>Ίδρυμα</th><th>Αίτηση</th><th>Κατάσταση</th><th></th></tr></thead>
@@ -770,8 +770,8 @@ function vAuth(err = '') {
 function vPending(status) {
   return `<div class="auth gut"><div class="card auth-card">
     <div class="auth-brand"><img src="icons/icon-192.png" alt=""><h2>${status === 'rejected' ? 'Η πρόσβαση δεν εγκρίθηκε' : 'Η αίτησή σας καταχωρίστηκε'}</h2></div>
-    <p>${status === 'rejected' ? 'Αν πιστεύετε ότι πρόκειται για λάθος, επικοινωνήστε με το Γραφείο Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας.' : 'Ένας διαχειριστής του Δικτύου θα επιβεβαιώσει ότι ανήκετε σε Γραφείο Διασύνδεσης και θα ενεργοποιήσει την πρόσβασή σας. Δοκιμάστε ξανά λίγο αργότερα.'}</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="recheck">Έλεγχος ξανά</button><button class="btn" data-act="logout">Αποσύνδεση</button></div>
+    <p>${status === 'rejected' ? 'Εάν θεωρείτε ότι πρόκειται για παραδρομή, παρακαλούμε επικοινωνήστε με το Γραφείο Διασύνδεσης του Πανεπιστημίου Δυτικής Μακεδονίας.' : 'Ένας διαχειριστής του Δικτύου θα επιβεβαιώσει ότι ανήκετε σε Γραφείο Διασύνδεσης και θα ενεργοποιήσει την πρόσβασή σας. Παρακαλούμε ελέγξτε εκ νέου αργότερα.'}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="recheck">Επανέλεγχος</button><button class="btn" data-act="logout">Αποσύνδεση</button></div>
   </div></div>`;
 }
 
@@ -818,15 +818,15 @@ function newPostDialog(kind = 'drasi') {
     <h2>Νέα ανάρτηση</h2>
     <p class="small muted" style="margin-top:-8px">Δημοσιεύεται ως Γραφείο Διασύνδεσης ${esc(officeShort(myOffice()))}.</p>
     <div class="card pad stack linkbox" style="gap:8px">
-      <label for="p_url" style="font-weight:650;font-size:13px">Έχετε ήδη την ανακοίνωση στο site σας;</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="p_url" type="url" placeholder="Επικολλήστε τον σύνδεσμο, π.χ. https://…" style="flex:1;min-width:200px"><button type="button" class="btn warm" id="fromLink">Συμπλήρωση</button></div>
-      <span class="hint small muted">Η φόρμα συμπληρώνεται αυτόματα από τη σελίδα. Ελέγξτε τη πριν δημοσιεύσετε.</span>
+      <label for="p_url" style="font-weight:650;font-size:13px">Η ανακοίνωση έχει ήδη δημοσιευθεί στην ιστοσελίδα σας;</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="p_url" type="url" placeholder="Σύνδεσμος της ανακοίνωσης, π.χ. https://…" style="flex:1;min-width:200px"><button type="button" class="btn warm" id="fromLink">Συμπλήρωση</button></div>
+      <span class="hint small muted">Η φόρμα συμπληρώνεται αυτόματα από τη σελίδα. Παρακαλούμε ελέγξτε τα στοιχεία πριν από τη δημοσίευση.</span>
     </div>
     <form class="form" id="postForm">
       <div class="field"><label for="p_kind">Είδος</label><select id="p_kind">${Object.entries(KINDS).map(([k, l]) => `<option value="${k}" ${k === kind ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label for="p_title">Τίτλος</label><input class="input" id="p_title" required minlength="3" maxlength="200"></div>
-      <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000" placeholder="Γράψτε ελεύθερα, και πατήστε «Βελτίωση κειμένου» αν θέλετε."></textarea>
-        <span class="hint">Μη γράφετε προσωπικά δεδομένα φοιτητών ή εργοδοτών.</span></div>
+      <div class="field"><label for="p_body">Περιγραφή</label><textarea id="p_body" maxlength="4000" placeholder="Σύντομη περιγραφή. Η «Βελτίωση κειμένου» μπορεί να τη διαμορφώσει σε επίσημη ανακοίνωση."></textarea>
+        <span class="hint">Παρακαλούμε να μην περιλαμβάνονται προσωπικά δεδομένα φοιτητών ή εργοδοτών.</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn warm sm" id="aiImprove">Βελτίωση κειμένου</button></div>
       <div id="p_extra"></div>
       <div class="acts"><button type="button" class="btn" data-close>Άκυρο</button><button class="btn primary">Δημοσίευση</button></div>
@@ -853,7 +853,7 @@ function newPostDialog(kind = 'drasi') {
     const busy = (btn, on, label) => { btn.disabled = on; btn.textContent = on ? 'Γράφεται…' : label; };
     $('#fromLink').addEventListener('click', async ev => {
       const btn = ev.currentTarget, url = $('#p_url').value.trim();
-      if (!url) { toast('Επικολλήστε πρώτα τον σύνδεσμο της ανακοίνωσης.'); $('#p_url').focus(); return; }
+      if (!url) { toast('Παρακαλούμε εισαγάγετε πρώτα τον σύνδεσμο της ανακοίνωσης.'); $('#p_url').focus(); return; }
       btn.disabled = true; btn.textContent = 'Διαβάζεται…';
       try {
         const r = await api.ai('from_link', { url });
@@ -864,15 +864,15 @@ function newPostDialog(kind = 'drasi') {
         if ($('#p_source') && r.place) $('#p_source').value = r.place;
         if ($('#p_link')) $('#p_link').value = r.link || url;
         S.fromLinkUrl = r.link || url;
-        toast('Η φόρμα συμπληρώθηκε. Ελέγξτε τη και πατήστε Δημοσίευση.');
+        toast('Η φόρμα συμπληρώθηκε. Παρακαλούμε ελέγξτε τα στοιχεία πριν από τη δημοσίευση.');
       } catch (err) { toast(errMsg(err)); }
       btn.disabled = false; btn.textContent = 'Συμπλήρωση';
     });
     $('#aiImprove').addEventListener('click', async ev => {
       const btn = ev.currentTarget, body = $('#p_body').value.trim(), title = $('#p_title').value.trim();
-      if (!body && !title) { toast('Γράψτε πρώτα λίγες λέξεις για την ανάρτηση.'); return; }
+      if (!body && !title) { toast('Παρακαλούμε συμπληρώστε πρώτα μια σύντομη περιγραφή.'); return; }
       busy(btn, true);
-      try { const { text } = await api.ai('improve', { kind: $('#p_kind').value, title, body }); $('#p_body').value = text; toast('Η πρόταση είναι έτοιμη. Μπορείτε να την αλλάξετε.'); }
+      try { const { text } = await api.ai('improve', { kind: $('#p_kind').value, title, body }); $('#p_body').value = text; toast('Η πρόταση κειμένου είναι έτοιμη και μπορεί να τροποποιηθεί.'); }
       catch (err) { toast(errMsg(err)); }
       busy(btn, false, 'Βελτίωση κειμένου');
     });
@@ -927,7 +927,7 @@ document.addEventListener('click', async e => {
   if (act === 'install' && installEvt) { installEvt.prompt(); installEvt = null; return; }
   if (act === 'feed-test' || act === 'feed-save') {
     const url = $('#f_feed').value.trim(), on = $('#f_feed_on').checked, msg = $('#feedMsg'), btn = t.closest('[data-act]');
-    if (!url && (act === 'feed-test' || on)) { toast('Συμπληρώστε τη διεύθυνση του site σας.'); return; }
+    if (!url && (act === 'feed-test' || on)) { toast('Παρακαλούμε συμπληρώστε τη διεύθυνση της ιστοσελίδας σας.'); return; }
     btn.disabled = true;
     try {
       let feed = url;
@@ -998,7 +998,7 @@ document.addEventListener('change', async e => {
     if (raw.size > 8 * 1024 * 1024) { toast('Το αρχείο ξεπερνά τα 8 MB.'); return; }
     toast('Γίνεται επεξεργασία του λογοτύπου…');
     const f = await prepareLogo(raw);
-    if (f.size > 2 * 1024 * 1024) { toast('Το λογότυπο είναι πολύ μεγάλο. Δοκιμάστε μικρότερο αρχείο.'); return; }
+    if (f.size > 2 * 1024 * 1024) { toast('Το αρχείο του λογοτύπου είναι πολύ μεγάλο. Παρακαλούμε επιλέξτε μικρότερο αρχείο.'); return; }
     try { await api.uploadLogo(myOffice(), f); S.offices = await api.offices(); S.O = Object.fromEntries(S.offices.map(o => [o.id, o])); render(); toast('Το λογότυπο ανέβηκε'); }
     catch (err) { toast(errMsg(err)); }
   }
@@ -1044,7 +1044,7 @@ document.addEventListener('submit', async e => {
     S.me = await api.me();
     if (S.me?.profile?.status === 'approved') await loadData();
   } catch (e) {
-    $('#app').innerHTML = `<div class="auth gut"><div class="card auth-card"><h2>Δεν ήταν δυνατή η σύνδεση</h2><p>${esc(errMsg(e))}</p><button class="btn primary" onclick="location.reload()">Δοκιμή ξανά</button></div></div>`;
+    $('#app').innerHTML = `<div class="auth gut"><div class="card auth-card"><h2>Δεν ήταν δυνατή η σύνδεση</h2><p>${esc(errMsg(e))}</p><button class="btn primary" onclick="location.reload()">Νέα προσπάθεια</button></div></div>`;
     return;
   }
   const h = (location.hash || '').slice(1);
